@@ -8,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "dv-hub-production",
-      "database_id": "local-only"
+      "database_id": "cba35793-5cbd-4fd6-9579-5ad67557b7bc"
     }
   ]
 }
