@@ -1115,6 +1115,9 @@ function addPublicationModal() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// INIT
+// INIT: загружаем пользователя, потом рисуем страницу
 // ─────────────────────────────────────────────────────────────
-navigate(location.pathname, false)
+checkAuthParams()
+loadCurrentUser().then(() => {
+  navigate(location.pathname, false)
+})
