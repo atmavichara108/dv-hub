@@ -521,15 +521,27 @@ async function setMaterialStatus(id, status) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// TOPICS
+// TOPICS — Канбан-доска с drag-and-drop
 // ─────────────────────────────────────────────────────────────
+// Drag-and-drop реализован на нативном HTML5 Drag API:
+// - draggable="true" на карточке — разрешает перетаскивание
+// - dragstart — запоминаем какую карточку взяли
+// - dragover — разрешаем бросить в эту зону (preventDefault)
+// - drop — обрабатываем: меняем статус темы через PATCH API
+// - dragend — убираем визуальные подсказки
+//
+// Никаких внешних библиотек — чистый браузерный API.
+
 const TOPIC_STATUSES = ['proposed','ripening','scheduled','in_discussion','synthesized','published','archive']
+
+// ID темы, которую сейчас перетаскивают
+let draggedTopicId = null
 
 async function renderTopics(filter = '') {
   app().innerHTML = `<div class="text-center py-12 text-ink-400"><i class="fas fa-circle-notch fa-spin text-2xl"></i></div>`
   const data = await get('/topics' + (filter ? `?status=${filter}` : ''))
 
-  // Группировка по статусу для kanban
+  // Группировка по статусу для канбана
   const groups = {}
   TOPIC_STATUSES.forEach(s => groups[s] = [])
   data.forEach(t => { if (groups[t.status]) groups[t.status].push(t); else groups['proposed'].push(t) })
@@ -541,15 +553,20 @@ async function renderTopics(filter = '') {
     <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
       <div>
         <h1 class="text-2xl font-semibold text-ink-900">Доска тем</h1>
-        <p class="text-ink-400 text-sm mt-1">Конвейер мысли — от идеи до публикации</p>
+        <p class="text-ink-400 text-sm mt-1">Перетаскивайте карточки между колонками для смены статуса</p>
       </div>
-      <button onclick="addTopicModal()" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
-        <i class="fas fa-plus mr-1.5"></i>Новая тема
-      </button>
+      <div class="flex gap-2">
+        <button onclick="toggleTopicView()" id="view-toggle-btn" class="border border-ink-200 text-ink-500 hover:border-ink-400 px-3 py-2 rounded-lg text-sm transition" title="Переключить вид">
+          <i class="fas fa-list"></i>
+        </button>
+        <button onclick="addTopicModal()" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+          <i class="fas fa-plus mr-1.5"></i>Новая тема
+        </button>
+      </div>
     </div>
 
     <div class="flex gap-2 mb-5 flex-wrap">
-      ${[['','Все'],['proposed','Предложены'],['ripening','Созревают'],['scheduled','Назначены'],['in_discussion','В обсуждении'],['synthesized','Синтез'],['archive','Архив']].map(([v,l]) =>
+      ${[['','Все'],['proposed','Предложены'],['ripening','Созревают'],['scheduled','Назначены'],['in_discussion','В обсуждении'],['synthesized','Синтез'],['published','В контент'],['archive','Архив']].map(([v,l]) =>
         `<button onclick="renderTopics('${v}')" class="text-xs px-3 py-1.5 rounded-full border transition ${filter===v ? 'bg-ink-800 text-white border-ink-800' : 'border-ink-200 text-ink-500 hover:border-ink-400'}">${l}</button>`
       ).join('')}
     </div>
@@ -557,19 +574,24 @@ async function renderTopics(filter = '') {
     ${filter ? `
     <div class="space-y-2">
       ${(groups[filter] || []).length === 0 ? '<div class="text-center py-12 text-ink-300">Нет тем в этом статусе</div>' :
-        (groups[filter] || []).map(t => topicCard(t)).join('')}
+        (groups[filter] || []).map(t => topicCard(t, false)).join('')}
     </div>` : `
-    <div class="overflow-x-auto pb-4">
-      <div class="flex gap-4 min-w-max">
+    <div id="kanban-board" class="overflow-x-auto pb-4">
+      <div class="flex gap-3 min-w-max">
         ${activeStatuses.map(s => `
-          <div class="w-64 flex-shrink-0">
-            <div class="flex items-center gap-2 mb-3">
+          <div class="w-60 flex-shrink-0">
+            <div class="flex items-center gap-2 mb-3 px-1">
               ${statusBadge(STATUS_TOPIC, s)}
-              <span class="text-xs text-ink-400">${groups[s].length}</span>
+              <span class="text-xs text-ink-400 font-medium">${groups[s].length}</span>
             </div>
-            <div class="space-y-2">
-              ${groups[s].length === 0 ? `<div class="text-xs text-ink-300 text-center py-4 border border-dashed border-ink-200 rounded-lg">Пусто</div>` :
-                groups[s].map(t => topicCard(t, true)).join('')}
+            <div class="kanban-column min-h-[200px] bg-ink-50/50 rounded-xl p-2 border-2 border-dashed border-transparent transition-colors"
+                 data-status="${s}"
+                 ondragover="onDragOver(event)"
+                 ondragleave="onDragLeave(event)"
+                 ondrop="onDrop(event, '${s}')">
+              ${groups[s].length === 0
+                ? `<div class="kanban-empty text-xs text-ink-300 text-center py-8">Перетащите сюда</div>`
+                : groups[s].map(t => topicCardDraggable(t)).join('')}
             </div>
           </div>`).join('')}
       </div>
@@ -577,6 +599,29 @@ async function renderTopics(filter = '') {
   </div>`
 }
 
+// Карточка темы для канбана (с drag)
+function topicCardDraggable(t) {
+  const p = PRIORITY[t.priority] || PRIORITY.medium
+  return `
+  <div class="kanban-card bg-white rounded-lg p-3 shadow-sm border border-ink-100 mb-2 cursor-grab active:cursor-grabbing hover:border-accent-300 hover:shadow-md transition-all"
+       draggable="true"
+       data-topic-id="${t.id}"
+       ondragstart="onDragStart(event, ${t.id})"
+       ondragend="onDragEnd(event)">
+    <a href="/topics/${t.id}" class="block text-sm font-medium text-ink-800 hover:text-accent-600 transition mb-1.5 leading-snug">${t.title}</a>
+    ${t.question ? `<p class="text-xs text-ink-400 mb-2 line-clamp-2 leading-relaxed">${t.question}</p>` : ''}
+    <div class="flex items-center justify-between text-xs text-ink-400">
+      <span title="${p[0]}"><i class="fas fa-circle ${p[1]} mr-0.5 text-[8px]"></i>${p[0]}</span>
+      <div class="flex gap-2">
+        ${t.material_count ? `<span title="Материалы"><i class="fas fa-inbox mr-0.5"></i>${t.material_count}</span>` : ''}
+        ${t.room_count ? `<span title="Дискуссии"><i class="fas fa-comments mr-0.5"></i>${t.room_count}</span>` : ''}
+      </div>
+    </div>
+    ${tags(t.tags) ? `<div class="mt-1.5">${tags(t.tags)}</div>` : ''}
+  </div>`
+}
+
+// Карточка темы для списка (без drag)
 function topicCard(t, compact = false) {
   const p = PRIORITY[t.priority] || PRIORITY.medium
   return `
@@ -596,6 +641,108 @@ function topicCard(t, compact = false) {
     ${tags(t.tags)}
   </a>`
 }
+
+// ── Drag-and-drop обработчики ─────────────────────────────────
+
+function onDragStart(event, topicId) {
+  draggedTopicId = topicId
+  // Данные для Firefox (требует setData для работы drag)
+  event.dataTransfer.setData('text/plain', topicId)
+  event.dataTransfer.effectAllowed = 'move'
+  // Подсвечиваем карточку как перетаскиваемую
+  setTimeout(() => {
+    event.target.classList.add('opacity-40', 'scale-95')
+  }, 0)
+}
+
+function onDragEnd(event) {
+  draggedTopicId = null
+  event.target.classList.remove('opacity-40', 'scale-95')
+  // Убираем подсветку со всех колонок
+  document.querySelectorAll('.kanban-column').forEach(col => {
+    col.classList.remove('border-accent-400', 'bg-accent-400/5')
+    col.classList.add('border-transparent')
+  })
+}
+
+function onDragOver(event) {
+  event.preventDefault()  // Обязательно — без этого drop не сработает
+  event.dataTransfer.dropEffect = 'move'
+  // Подсвечиваем колонку куда тащим
+  const col = event.currentTarget
+  col.classList.add('border-accent-400', 'bg-accent-400/5')
+  col.classList.remove('border-transparent')
+}
+
+function onDragLeave(event) {
+  const col = event.currentTarget
+  col.classList.remove('border-accent-400', 'bg-accent-400/5')
+  col.classList.add('border-transparent')
+}
+
+async function onDrop(event, newStatus) {
+  event.preventDefault()
+  const col = event.currentTarget
+  col.classList.remove('border-accent-400', 'bg-accent-400/5')
+  col.classList.add('border-transparent')
+
+  if (!draggedTopicId) return
+
+  const topicId = draggedTopicId
+  draggedTopicId = null
+
+  try {
+    await patch(`/topics/${topicId}`, { status: newStatus })
+    toast(`Статус изменён → ${STATUS_TOPIC[newStatus]?.[0] || newStatus}`)
+    renderTopics()  // Перерисовываем доску
+  } catch (e) {
+    toast('Ошибка обновления статуса', 'error')
+  }
+}
+
+// Переключение вид: канбан ↔ список
+let topicViewMode = 'kanban'
+
+function toggleTopicView() {
+  topicViewMode = topicViewMode === 'kanban' ? 'list' : 'kanban'
+  const btn = document.getElementById('view-toggle-btn')
+  if (btn) btn.innerHTML = topicViewMode === 'kanban' ? '<i class="fas fa-list"></i>' : '<i class="fas fa-columns"></i>'
+
+  if (topicViewMode === 'list') {
+    renderTopicsList()
+  } else {
+    renderTopics()
+  }
+}
+
+async function renderTopicsList() {
+  app().innerHTML = `<div class="text-center py-12 text-ink-400"><i class="fas fa-circle-notch fa-spin text-2xl"></i></div>`
+  const data = await get('/topics')
+
+  app().innerHTML = `
+  <div class="fade-in">
+    <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-semibold text-ink-900">Доска тем</h1>
+        <p class="text-ink-400 text-sm mt-1">Все темы списком</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="toggleTopicView()" id="view-toggle-btn" class="border border-ink-200 text-ink-500 hover:border-ink-400 px-3 py-2 rounded-lg text-sm transition" title="Переключить вид">
+          <i class="fas fa-columns"></i>
+        </button>
+        <button onclick="addTopicModal()" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+          <i class="fas fa-plus mr-1.5"></i>Новая тема
+        </button>
+      </div>
+    </div>
+    ${data.length === 0 ? '<div class="text-center py-16 text-ink-300"><i class="fas fa-layer-group text-4xl mb-3 block"></i>Нет тем</div>' : `
+    <div class="space-y-2">
+      ${data.map(t => topicCard(t, false)).join('')}
+    </div>`}
+  </div>`
+}
+
+// ── Модалки тем (создание, детали, редактирование) ────────────
 
 function addTopicModal() {
   openModal(`
@@ -676,22 +823,23 @@ async function renderTopicDetail(id) {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p class="text-xs font-medium text-blue-600 mb-2">Тезис</p>
-          ${t.thesis ? `<p class="text-sm text-ink-800">${t.thesis}</p>` : `<button onclick="editField(${t.id},'thesis','Тезис')" class="text-xs text-blue-400 hover:underline">+ Добавить тезис</button>`}
+          ${t.thesis ? `<p class="text-sm text-ink-800">${t.thesis}</p><button onclick="editField(${t.id},'thesis','Тезис','${encodeURIComponent(t.thesis)}')" class="text-xs text-blue-400 hover:underline mt-1">редактировать</button>` : `<button onclick="editField(${t.id},'thesis','Тезис','')" class="text-xs text-blue-400 hover:underline">+ Добавить тезис</button>`}
         </div>
         <div class="p-3 bg-orange-50 rounded-lg border border-orange-100">
           <p class="text-xs font-medium text-orange-600 mb-2">Антитезис</p>
-          ${t.antithesis ? `<p class="text-sm text-ink-800">${t.antithesis}</p>` : `<button onclick="editField(${t.id},'antithesis','Антитезис')" class="text-xs text-orange-400 hover:underline">+ Добавить антитезис</button>`}
+          ${t.antithesis ? `<p class="text-sm text-ink-800">${t.antithesis}</p><button onclick="editField(${t.id},'antithesis','Антитезис','${encodeURIComponent(t.antithesis)}')" class="text-xs text-orange-400 hover:underline mt-1">редактировать</button>` : `<button onclick="editField(${t.id},'antithesis','Антитезис','')" class="text-xs text-orange-400 hover:underline">+ Добавить антитезис</button>`}
         </div>
       </div>
 
       ${t.synthesis ? `
-      <div class="p-4 bg-accent-400/10 rounded-lg border border-accent-400/30">
+      <div class="p-4 bg-accent-400/10 rounded-lg border border-accent-400/30 mb-4">
         <p class="text-xs font-medium text-accent-600 mb-2"><i class="fas fa-star mr-1"></i>Синтез</p>
         <p class="text-sm text-ink-800">${t.synthesis}</p>
+        <button onclick="editField(${t.id},'synthesis','Синтез','${encodeURIComponent(t.synthesis)}')" class="text-xs text-accent-500 hover:underline mt-1">редактировать</button>
       </div>` : `
-      <button onclick="editField(${t.id},'synthesis','Синтез')" class="text-xs text-accent-500 hover:underline">+ Добавить синтез</button>`}
+      <button onclick="editField(${t.id},'synthesis','Синтез','')" class="text-xs text-accent-500 hover:underline mb-4 block">+ Добавить синтез</button>`}
 
-      <div class="flex items-center gap-4 mt-4 text-xs text-ink-400">
+      <div class="flex items-center gap-4 text-xs text-ink-400">
         <span>${PRIORITY[t.priority]?.[0] || 'Средний'} приоритет</span>
         <span>${t.owner_name ? '↳ ' + t.owner_name : ''}</span>
         <span>${fdate(t.updated_at)}</span>
@@ -759,12 +907,13 @@ async function setTopicStatus(id, status) {
   renderTopicDetail(id)
 }
 
-function editField(id, field, label) {
+function editField(id, field, label, currentVal = '') {
+  const decoded = currentVal ? decodeURIComponent(currentVal) : ''
   openModal(`
   <div class="p-6">
     <h3 class="text-lg font-semibold mb-4">Редактировать: ${label}</h3>
     <form id="field-form" class="space-y-3">
-      <textarea name="value" rows="4" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none" placeholder="${label}..."></textarea>
+      <textarea name="value" rows="4" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none" placeholder="${label}...">${decoded}</textarea>
       <div class="flex justify-end gap-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
         <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Сохранить</button>
@@ -777,6 +926,44 @@ function editField(id, field, label) {
     await patch(`/topics/${id}`, { [field]: val })
     closeModal(); toast(`${label} сохранён`)
     renderTopicDetail(id)
+  })
+}
+
+function createRoomForTopic(topicId, topicTitle) {
+  openModal(`
+  <div class="p-6">
+    <h3 class="text-lg font-semibold mb-2">Создать комнату дискуссии</h3>
+    <p class="text-sm text-ink-400 mb-4">Тема: ${topicTitle}</p>
+    <form id="room-topic-form" class="space-y-3">
+      <div>
+        <label class="block text-xs text-ink-500 mb-1">Название комнаты *</label>
+        <input name="title" required value="${topicTitle} — обсуждение" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+      </div>
+      <div>
+        <label class="block text-xs text-ink-500 mb-1">Описание</label>
+        <textarea name="description" rows="2" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs text-ink-500 mb-1">Дата и время</label>
+        <input name="scheduled_at" type="datetime-local" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
+        <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Создать</button>
+      </div>
+    </form>
+  </div>`)
+
+  $('#room-topic-form')?.addEventListener('submit', async e => {
+    e.preventDefault()
+    const fd = new FormData(e.target)
+    await post('/rooms', {
+      topic_id: topicId, title: fd.get('title'),
+      description: fd.get('description') || undefined,
+      scheduled_at: fd.get('scheduled_at') || undefined
+    })
+    closeModal(); toast('Комната создана')
+    renderTopicDetail(topicId)
   })
 }
 
