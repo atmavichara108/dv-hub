@@ -1,22 +1,44 @@
+// src/index.tsx
+// Главный файл приложения. Hono — это web-фреймворк (как Express, но легче).
+// Здесь мы:
+// 1. Объявляем типы переменных окружения (Bindings)
+// 2. Подключаем роуты: auth (авторизация) и api (данные)
+// 3. Раздаём статические файлы
+// 4. Отдаём HTML-оболочку SPA на все страницы
+
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
 import api from './routes/api'
+import auth from './routes/auth'
+
+// Bindings — переменные окружения, которые Cloudflare передаёт в Worker.
+// DB — база данных D1
+// TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME — для проверки Telegram Login
+// RESEND_API_KEY — для отправки email
 
 type Bindings = {
   DB: D1Database
+  TELEGRAM_BOT_TOKEN: string
+  TELEGRAM_BOT_USERNAME: string
+  RESEND_API_KEY: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use('/api/*', cors())
-app.use('/static/*', serveStatic({ root: './public' }))
 
-// Mount API
+// Подключаем auth-роуты
+app.route('/auth', auth)
+
+// Подключаем API-роуты
 app.route('/api', api)
 
 // ── HTML SHELL ────────────────────────────────────────────────
-const html = (title: string = 'DV Hub') => `<!DOCTYPE html>
+// Это SPA (Single Page Application) — один HTML загружается один раз,
+// дальше JavaScript рисует разные страницы без перезагрузки.
+// TELEGRAM_BOT_USERNAME передаём в HTML чтобы фронтенд мог показать виджет.
+
+const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -49,6 +71,7 @@ const html = (title: string = 'DV Hub') => `<!DOCTYPE html>
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #d1cbb8; border-radius: 2px; }
   </style>
+  <script>window.__TG_BOT_USERNAME__ = '${botUsername}';</script>
 </head>
 <body class="bg-ink-50 text-ink-800 min-h-screen">
 
@@ -66,6 +89,7 @@ const html = (title: string = 'DV Hub') => `<!DOCTYPE html>
       <a href="/topics" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="topics"><i class="fas fa-layer-group mr-1.5"></i><span class="hidden sm:inline">Темы</span></a>
       <a href="/rooms" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="rooms"><i class="fas fa-comments mr-1.5"></i><span class="hidden sm:inline">Дискуссии</span></a>
       <a href="/media" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="media"><i class="fas fa-play-circle mr-1.5"></i><span class="hidden sm:inline">Медиа</span></a>
+      <div id="auth-nav" class="ml-2"></div>
     </div>
   </div>
 </nav>
@@ -86,18 +110,22 @@ const html = (title: string = 'DV Hub') => `<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/locale/ru.min.js"></script>
+<script async src="https://telegram.org/js/telegram-widget.js?22"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>`
 
 // SPA — все страницы отдают один HTML
-app.get('/', (c) => c.html(html('Дашборд')))
-app.get('/materials', (c) => c.html(html('Материалы')))
-app.get('/materials/*', (c) => c.html(html('Материалы')))
-app.get('/topics', (c) => c.html(html('Темы')))
-app.get('/topics/*', (c) => c.html(html('Темы')))
-app.get('/rooms', (c) => c.html(html('Дискуссии')))
-app.get('/rooms/*', (c) => c.html(html('Дискуссии')))
-app.get('/media', (c) => c.html(html('Медиа')))
+const page = (c: any, title: string) => c.html(html(title, c.env.TELEGRAM_BOT_USERNAME || ''))
+
+app.get('/', (c) => page(c, 'Дашборд'))
+app.get('/materials', (c) => page(c, 'Материалы'))
+app.get('/materials/*', (c) => page(c, 'Материалы'))
+app.get('/topics', (c) => page(c, 'Темы'))
+app.get('/topics/*', (c) => page(c, 'Темы'))
+app.get('/rooms', (c) => page(c, 'Дискуссии'))
+app.get('/rooms/*', (c) => page(c, 'Дискуссии'))
+app.get('/media', (c) => page(c, 'Медиа'))
+app.get('/login', (c) => page(c, 'Вход'))
 
 export default app
