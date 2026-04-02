@@ -320,6 +320,16 @@ async function searchByTag(tag) {
   </div>`
 }
 
+// ── Mobile menu ───────────────────────────────────────────────
+function toggleMobileMenu() {
+  const nav = document.getElementById('mobile-nav')
+  if (nav) nav.classList.toggle('hidden')
+}
+function closeMobileMenu() {
+  const nav = document.getElementById('mobile-nav')
+  if (nav) nav.classList.add('hidden')
+}
+
 async function get(path) {
   const r = await axios.get(API + path)
   return r.data
@@ -337,10 +347,13 @@ async function patch(path, data) {
 // ROUTER
 // ─────────────────────────────────────────────────────────────
 function updateNav(page) {
+
   $$('.nav-link').forEach(a => {
-    a.classList.toggle('bg-ink-700', a.dataset.page === page)
-    a.classList.toggle('text-white', a.dataset.page === page)
+    const active = a.dataset.page === page
+    a.classList.toggle('bg-ink-700', active)
+    a.classList.toggle('text-white', active)
   })
+  closeMobileMenu()
 }
 
 function navigate(path, push = true) {
@@ -788,15 +801,15 @@ async function renderTopics(filter = '') {
       ${(groups[filter] || []).length === 0 ? '<div class="text-center py-12 text-ink-300">Нет тем в этом статусе</div>' :
         (groups[filter] || []).map(t => topicCard(t, false)).join('')}
     </div>` : `
-    <div id="kanban-board" class="overflow-x-auto pb-4">
-      <div class="flex gap-3 min-w-max">
+    <div id="kanban-board" class="overflow-x-auto pb-4 -mx-4 px-4">
+      <div class="flex gap-3" style="min-width: max-content;">
         ${activeStatuses.map(s => `
-          <div class="w-60 flex-shrink-0">
+          <div class="w-60 lg:w-72 xl:flex-1 xl:min-w-[200px] flex-shrink-0">
             <div class="flex items-center gap-2 mb-3 px-1">
               ${statusBadge(STATUS_TOPIC, s)}
               <span class="text-xs text-ink-400 font-medium">${groups[s].length}</span>
             </div>
-            <div class="kanban-column min-h-[200px] bg-ink-50/50 rounded-xl p-2 border-2 border-dashed border-transparent transition-colors"
+            <div class="kanban-column min-h-[250px] bg-ink-50/50 rounded-xl p-2 border-2 border-dashed border-transparent transition-colors"
                  data-status="${s}"
                  ondragover="onDragOver(event)"
                  ondragleave="onDragLeave(event)"
