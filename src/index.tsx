@@ -77,25 +77,40 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
 
 <!-- NAVBAR -->
 <nav class="bg-ink-900 text-ink-100 sticky top-0 z-50 shadow-lg">
-  <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
+  <div class="max-w-[1400px] mx-auto px-4 flex items-center justify-between h-14">
     <a href="/" class="flex items-center gap-2 font-semibold text-base tracking-tight">
       <span class="text-accent-400"><i class="fas fa-fire-alt"></i></span>
       <span>DV Hub</span>
       <span class="hidden sm:inline text-ink-400 text-xs font-normal ml-1">Дискуссионные Вечера</span>
     </a>
     <div class="flex items-center gap-1 text-sm">
-      <a href="/" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="dashboard"><i class="fas fa-th-large mr-1.5"></i><span class="hidden sm:inline">Дашборд</span></a>
-      <a href="/materials" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="materials"><i class="fas fa-inbox mr-1.5"></i><span class="hidden sm:inline">Материалы</span></a>
-      <a href="/topics" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="topics"><i class="fas fa-layer-group mr-1.5"></i><span class="hidden sm:inline">Темы</span></a>
-      <a href="/rooms" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="rooms"><i class="fas fa-comments mr-1.5"></i><span class="hidden sm:inline">Дискуссии</span></a>
-      <a href="/media" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="media"><i class="fas fa-play-circle mr-1.5"></i><span class="hidden sm:inline">Медиа</span></a>
+      <button id="mobile-menu-btn" class="sm:hidden px-2 py-1.5 rounded hover:bg-ink-700 transition" onclick="toggleMobileMenu()">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div id="nav-links" class="hidden sm:flex items-center gap-1">
+        <a href="/" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="dashboard"><i class="fas fa-th-large mr-1.5"></i><span class="hidden md:inline">Дашборд</span></a>
+        <a href="/materials" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="materials"><i class="fas fa-inbox mr-1.5"></i><span class="hidden md:inline">Материалы</span></a>
+        <a href="/topics" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="topics"><i class="fas fa-layer-group mr-1.5"></i><span class="hidden md:inline">Темы</span></a>
+        <a href="/rooms" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="rooms"><i class="fas fa-comments mr-1.5"></i><span class="hidden md:inline">Дискуссии</span></a>
+        <a href="/media" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="media"><i class="fas fa-play-circle mr-1.5"></i><span class="hidden md:inline">Медиа</span></a>
+      </div>
       <div id="auth-nav" class="ml-2"></div>
+    </div>
+  </div>
+  <!-- MOBILE NAV DROPDOWN -->
+  <div id="mobile-nav" class="sm:hidden hidden bg-ink-800 border-t border-ink-700">
+    <div class="max-w-[1400px] mx-auto px-4 py-2 flex flex-col gap-1">
+      <a href="/" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="dashboard" onclick="closeMobileMenu()"><i class="fas fa-th-large mr-2"></i>Дашборд</a>
+      <a href="/materials" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="materials" onclick="closeMobileMenu()"><i class="fas fa-inbox mr-2"></i>Материалы</a>
+      <a href="/topics" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="topics" onclick="closeMobileMenu()"><i class="fas fa-layer-group mr-2"></i>Темы</a>
+      <a href="/rooms" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="rooms" onclick="closeMobileMenu()"><i class="fas fa-comments mr-2"></i>Дискуссии</a>
+      <a href="/media" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="media" onclick="closeMobileMenu()"><i class="fas fa-play-circle mr-2"></i>Медиа</a>
     </div>
   </div>
 </nav>
 
 <!-- APP ROOT -->
-<div id="app" class="max-w-6xl mx-auto px-4 py-6"></div>
+<div id="app" class="max-w-[1400px] mx-auto px-4 py-6"></div>
 
 <!-- MODAL OVERLAY -->
 <div id="modal-overlay" class="fixed inset-0 bg-black/50 z-40 hidden flex items-center justify-center p-4">
