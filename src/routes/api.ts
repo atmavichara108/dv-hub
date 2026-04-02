@@ -35,10 +35,11 @@ api.get('/materials', async (c) => {
 
 api.post('/materials', async (c) => {
   const body = await c.req.json()
-  const { title, url, content, description, type = 'link', tags = [], author_id = 1 } = body
+  const { title, url, content, description, type = 'link', tags = [], author_id = 1, topic_id  } = body
+  const status = topic_id ? 'linked' : 'raw'
   const result = await c.env.DB.prepare(
-    `INSERT INTO materials (title, url, content, description, type, tags, author_id) VALUES (?,?,?,?,?,?,?)`
-  ).bind(title, url || null, content || null, description || null, type, JSON.stringify(tags), author_id).run()
+    `INSERT INTO materials (title, url, content, description, type, tags, author_id, topic_id, status) VALUES (?,?,?,?,?,?,?,?,?)`
+  ).bind(title, url || null, content || null, description || null, type, JSON.stringify(tags), author_id, topic_id || null, status).run()
   return c.json({ id: result.meta.last_row_id, ...body }, 201)
 })
 
