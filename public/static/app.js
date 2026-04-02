@@ -968,8 +968,14 @@ function createRoomForTopic(topicId, topicTitle) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ROOMS
+// ROOMS — Комнаты дискуссий
 // ─────────────────────────────────────────────────────────────
+// Комната — это не чат, а пространство конкретного обсуждения.
+// Три режима жизни: подготовка → активная дискуссия → завершена.
+// На странице комнаты: мета-информация, связанная тема,
+// материалы, блок диалектики (тезис/антитезис/синтез),
+// заметки по ходу, итоги, задачи после обсуждения.
+
 async function renderRooms(filter = '') {
   app().innerHTML = `<div class="text-center py-12 text-ink-400"><i class="fas fa-circle-notch fa-spin text-2xl"></i></div>`
   const data = await get('/rooms' + (filter ? `?status=${filter}` : ''))
@@ -992,34 +998,34 @@ async function renderRooms(filter = '') {
     </div>
 
     ${data.length === 0 ? '<div class="text-center py-16 text-ink-300"><i class="fas fa-comments text-4xl mb-3 block"></i>Нет комнат</div>' : `
-    <div class="space-y-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       ${data.map(r => `
         <a href="/rooms/${r.id}" class="block bg-white rounded-xl p-5 shadow-sm border border-ink-100 hover:border-accent-300 transition group">
-          <div class="flex items-start justify-between gap-4 flex-wrap">
-            <div class="flex-1">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex-1 min-w-0">
               <div class="font-medium text-ink-800 group-hover:text-accent-600 transition">${r.title}</div>
-              ${r.topic_title ? `<div class="text-xs text-accent-500 mt-1">→ ${r.topic_title}</div>` : ''}
-              ${r.description ? `<p class="text-xs text-ink-400 mt-1.5">${r.description}</p>` : ''}
+              ${r.topic_title ? `<div class="text-xs text-accent-500 mt-1"><i class="fas fa-layer-group mr-1"></i>${r.topic_title}</div>` : ''}
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-              ${statusBadge(STATUS_ROOM, r.status)}
-            </div>
+            ${statusBadge(STATUS_ROOM, r.status)}
           </div>
-          ${r.scheduled_at ? `<div class="text-xs text-ink-400 mt-3"><i class="fas fa-calendar mr-1.5"></i>${fdate(r.scheduled_at)}</div>` : ''}
-          ${r.synthesis ? `<div class="mt-3 p-2 bg-accent-400/10 rounded text-xs text-accent-600"><i class="fas fa-star mr-1"></i>${r.synthesis.substring(0,120)}...</div>` : ''}
+          ${r.description ? `<p class="text-xs text-ink-400 mt-1 line-clamp-2">${r.description}</p>` : ''}
+          <div class="flex items-center gap-3 mt-3 text-xs text-ink-400">
+            ${r.scheduled_at ? `<span><i class="fas fa-calendar mr-1"></i>${fdate(r.scheduled_at)}</span>` : '<span class="italic">Дата не назначена</span>'}
+            ${(() => { try { const p = JSON.parse(r.participants || '[]'); return p.length ? `<span><i class="fas fa-users mr-1"></i>${p.length}</span>` : '' } catch { return '' } })()}
+          </div>
         </a>`).join('')}
     </div>`}
   </div>`
 }
 
-function addRoomModal(topicId = null, topicTitle = '') {
+function addRoomModal() {
   openModal(`
   <div class="p-6">
     <h3 class="text-lg font-semibold mb-4">Создать комнату дискуссии</h3>
     <form id="room-form" class="space-y-3">
       <div>
         <label class="block text-xs text-ink-500 mb-1">Название *</label>
-        <input name="title" required value="${topicTitle ? topicTitle + ' — обсуждение' : ''}" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+        <input name="title" required class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
       </div>
       <div>
         <label class="block text-xs text-ink-500 mb-1">Описание</label>
@@ -1027,7 +1033,7 @@ function addRoomModal(topicId = null, topicTitle = '') {
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs text-ink-500 mb-1">Дата</label>
+          <label class="block text-xs text-ink-500 mb-1">Дата и время</label>
           <input name="scheduled_at" type="datetime-local" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
         </div>
         <div>
@@ -1038,7 +1044,6 @@ function addRoomModal(topicId = null, topicTitle = '') {
           </select>
         </div>
       </div>
-      <input type="hidden" name="topic_id" value="${topicId || ''}">
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
         <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Создать</button>
@@ -1049,125 +1054,177 @@ function addRoomModal(topicId = null, topicTitle = '') {
   $('#room-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     const fd = new FormData(e.target)
-    const tid = fd.get('topic_id')
     await post('/rooms', {
-      title: fd.get('title'), description: fd.get('description') || undefined,
-      scheduled_at: fd.get('scheduled_at') || undefined, is_public: parseInt(fd.get('is_public')),
-      topic_id: tid ? parseInt(tid) : undefined
+      title: fd.get('title'),
+      description: fd.get('description') || undefined,
+      scheduled_at: fd.get('scheduled_at') || undefined,
+      is_public: parseInt(fd.get('is_public'))
     })
     closeModal(); toast('Комната создана')
     renderRooms()
   })
 }
 
-function createRoomForTopic(topicId, topicTitle) {
-  addRoomModal(topicId, topicTitle)
-}
-
 async function renderRoomDetail(id) {
   app().innerHTML = `<div class="text-center py-12 text-ink-400"><i class="fas fa-circle-notch fa-spin text-2xl"></i></div>`
   const r = await get(`/rooms/${id}`)
+
+  // Парсим JSON-поля
   let participants = []
-  try { participants = typeof r.participants === 'string' ? JSON.parse(r.participants) : (r.participants || []) } catch {}
+  let tasks = []
+  try { participants = JSON.parse(r.participants || '[]') } catch {}
+  try { tasks = JSON.parse(r.tasks || '[]') } catch {}
+
+  // Jitsi room name: уникальный, привязанный к комнате
+  const jitsiRoom = `dv-hub-room-${id}`
+  const jitsiUrl = `https://meet.jit.si/${jitsiRoom}`
 
   app().innerHTML = `
   <div class="fade-in">
-    <div class="mb-4">
+    <div class="mb-4 flex items-center justify-between">
       <a href="/rooms" class="text-sm text-ink-400 hover:text-accent-500"><i class="fas fa-arrow-left mr-1"></i>Все комнаты</a>
+      <div class="flex items-center gap-2">
+        ${statusBadge(STATUS_ROOM, r.status)}
+        <button onclick="changeRoomStatus(${r.id}, '${r.status}')" class="text-xs text-ink-400 hover:text-ink-700 px-2 py-1 rounded border border-ink-200 hover:border-ink-400 transition">
+          Статус
+        </button>
+      </div>
     </div>
-    <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-6 mb-6">
-      <div class="flex items-start justify-between gap-4 flex-wrap mb-2">
-        <h1 class="text-xl font-semibold text-ink-900 flex-1">${r.title}</h1>
-        <div class="flex items-center gap-2">
-          ${statusBadge(STATUS_ROOM, r.status)}
-          <button onclick="changeRoomStatus(${r.id}, '${r.status}')" class="text-xs text-ink-400 hover:text-ink-700 px-2 py-1 rounded border border-ink-200 hover:border-ink-400 transition">
-            Изменить
+
+    <!-- Заголовок и мета -->
+    <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-6 mb-4">
+      <h1 class="text-xl font-semibold text-ink-900 mb-2">${r.title}</h1>
+      ${r.topic_title ? `<a href="/topics/${r.topic_id}" class="inline-block text-sm text-accent-500 hover:underline mb-3"><i class="fas fa-layer-group mr-1"></i>${r.topic_title}</a>` : ''}
+      ${r.description ? `<p class="text-sm text-ink-500 mb-3">${r.description}</p>` : ''}
+      <div class="flex items-center gap-4 text-xs text-ink-400 flex-wrap">
+        ${r.scheduled_at ? `<span><i class="fas fa-calendar mr-1"></i>${fdate(r.scheduled_at)}</span>` : '<span class="italic">Дата не назначена</span>'}
+        ${r.is_public ? '<span class="text-accent-500"><i class="fas fa-globe mr-1"></i>Публичная</span>' : '<span><i class="fas fa-lock mr-1"></i>Приватная</span>'}
+        <span><i class="fas fa-users mr-1"></i>${participants.length} участников</span>
+      </div>
+    </div>
+
+    <!-- Кнопка звонка -->
+    <div class="bg-gradient-to-r from-ink-800 to-ink-900 rounded-xl p-5 mb-4 text-white">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="font-medium mb-1"><i class="fas fa-video mr-2 text-accent-400"></i>Видеозвонок</h2>
+          <p class="text-ink-300 text-xs">Jitsi Meet — бесплатный групповой звонок, без регистрации</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="copyToClipboard('${jitsiUrl}')" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Скопировать ссылку">
+            <i class="fas fa-copy mr-1"></i>Ссылка
           </button>
+          <a href="${jitsiUrl}" target="_blank" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
+            <i class="fas fa-phone-alt mr-1.5"></i>Начать звонок
+          </a>
         </div>
       </div>
-      ${r.topic_title ? `<a href="/topics/${r.topic_id}" class="text-sm text-accent-500 hover:underline">→ ${r.topic_title}</a>` : ''}
-      ${r.description ? `<p class="text-ink-400 text-sm mt-3">${r.description}</p>` : ''}
-      ${r.scheduled_at ? `<div class="text-xs text-ink-400 mt-3"><i class="fas fa-calendar mr-1.5"></i>${fdate(r.scheduled_at)}</div>` : ''}
+      <div id="jitsi-container" class="mt-4 hidden">
+        <iframe id="jitsi-iframe" allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+          class="w-full rounded-lg border-2 border-ink-700" style="height: 500px;"></iframe>
+        <button onclick="closeJitsi()" class="mt-2 text-xs text-ink-400 hover:text-white transition">
+          <i class="fas fa-compress mr-1"></i>Свернуть
+        </button>
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="md:col-span-2 space-y-4">
-
-        <div class="bg-white rounded-xl p-5 border border-ink-100 shadow-sm">
-          <h2 class="font-medium text-ink-700 mb-3"><i class="fas fa-pen mr-2 text-ink-300"></i>Заметки по ходу</h2>
-          ${r.notes ? `<p class="text-sm text-ink-700 whitespace-pre-wrap">${r.notes}</p>` : ''}
-          <button onclick="editRoomField(${r.id},'notes','Заметки','${(r.notes||'').replace(/'/g,"\\'")}', true)" class="mt-2 text-xs text-accent-500 hover:underline">${r.notes ? 'Редактировать' : '+ Добавить заметки'}</button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
-            <p class="text-xs font-medium text-blue-600 mb-2">Тезис</p>
-            ${r.thesis ? `<p class="text-sm text-ink-800">${r.thesis}</p>` : ''}
-            <button onclick="editRoomField(${r.id},'thesis','Тезис','${(r.thesis||'').replace(/'/g,"\\'")}', false)" class="mt-2 text-xs text-blue-400 hover:underline">${r.thesis ? 'Изменить' : '+ Добавить'}</button>
-          </div>
-          <div class="p-4 bg-orange-50 rounded-xl border border-orange-100">
-            <p class="text-xs font-medium text-orange-600 mb-2">Антитезис</p>
-            ${r.antithesis ? `<p class="text-sm text-ink-800">${r.antithesis}</p>` : ''}
-            <button onclick="editRoomField(${r.id},'antithesis','Антитезис','${(r.antithesis||'').replace(/'/g,"\\'")}', false)" class="mt-2 text-xs text-orange-400 hover:underline">${r.antithesis ? 'Изменить' : '+ Добавить'}</button>
-          </div>
-        </div>
-
-        ${r.synthesis || r.status === 'completed' ? `
-        <div class="p-4 bg-accent-400/10 rounded-xl border border-accent-400/30">
-          <p class="text-xs font-medium text-accent-600 mb-2"><i class="fas fa-star mr-1"></i>Синтез / Итоги</p>
-          ${r.synthesis ? `<p class="text-sm text-ink-800 whitespace-pre-wrap">${r.synthesis}</p>` : ''}
-          <button onclick="editRoomField(${r.id},'synthesis','Синтез','${(r.synthesis||'').replace(/'/g,"\\'")}', true)" class="mt-2 text-xs text-accent-500 hover:underline">${r.synthesis ? 'Редактировать' : '+ Добавить синтез'}</button>
-        </div>` : `<button onclick="editRoomField(${r.id},'synthesis','Синтез','', true)" class="text-xs text-accent-500 hover:underline">+ Добавить синтез</button>`}
-
+    <!-- Диалектика: тезис / антитезис / синтез -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+        <p class="text-xs font-medium text-blue-600 mb-2"><i class="fas fa-plus-circle mr-1"></i>Тезис</p>
+        ${r.thesis
+          ? `<p class="text-sm text-ink-800 whitespace-pre-line">${r.thesis}</p>
+             <button onclick="editRoomField(${r.id},'thesis','Тезис','${encodeURIComponent(r.thesis)}')" class="text-xs text-blue-400 hover:underline mt-2">редактировать</button>`
+          : `<button onclick="editRoomField(${r.id},'thesis','Тезис','')" class="text-xs text-blue-400 hover:underline">+ Добавить</button>`}
       </div>
+      <div class="bg-orange-50 rounded-xl p-4 border border-orange-100">
+        <p class="text-xs font-medium text-orange-600 mb-2"><i class="fas fa-minus-circle mr-1"></i>Антитезис</p>
+        ${r.antithesis
+          ? `<p class="text-sm text-ink-800 whitespace-pre-line">${r.antithesis}</p>
+             <button onclick="editRoomField(${r.id},'antithesis','Антитезис','${encodeURIComponent(r.antithesis)}')" class="text-xs text-orange-400 hover:underline mt-2">редактировать</button>`
+          : `<button onclick="editRoomField(${r.id},'antithesis','Антитезис','')" class="text-xs text-orange-400 hover:underline">+ Добавить</button>`}
+      </div>
+      <div class="bg-accent-400/10 rounded-xl p-4 border border-accent-400/30">
+        <p class="text-xs font-medium text-accent-600 mb-2"><i class="fas fa-star mr-1"></i>Синтез</p>
+        ${r.synthesis
+          ? `<p class="text-sm text-ink-800 whitespace-pre-line">${r.synthesis}</p>
+             <button onclick="editRoomField(${r.id},'synthesis','Синтез','${encodeURIComponent(r.synthesis)}')" class="text-xs text-accent-500 hover:underline mt-2">редактировать</button>`
+          : `<button onclick="editRoomField(${r.id},'synthesis','Синтез','')" class="text-xs text-accent-500 hover:underline">+ Добавить</button>`}
+      </div>
+    </div>
 
-      <div class="space-y-4">
-        <div class="bg-white rounded-xl p-4 border border-ink-100 shadow-sm">
-          <h2 class="font-medium text-ink-700 mb-3 text-sm"><i class="fas fa-users mr-2 text-ink-300"></i>Участники</h2>
-          ${participants.length ? `<div class="space-y-1">${participants.map(p => `<div class="text-sm text-ink-700 flex items-center gap-2"><i class="fas fa-user-circle text-ink-300"></i>${p}</div>`).join('')}</div>` : '<p class="text-xs text-ink-400">Нет участников</p>'}
-          <button onclick="editParticipants(${r.id})" class="mt-2 text-xs text-accent-500 hover:underline">Редактировать</button>
-        </div>
+    <!-- Заметки и итоги -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5">
+        <h2 class="font-medium text-ink-700 mb-3"><i class="fas fa-pen-fancy mr-2 text-ink-400"></i>Заметки по ходу</h2>
+        ${r.notes
+          ? `<div class="text-sm text-ink-700 whitespace-pre-line leading-relaxed">${r.notes}</div>
+             <button onclick="editRoomField(${r.id},'notes','Заметки','${encodeURIComponent(r.notes)}')" class="text-xs text-ink-400 hover:underline mt-3">редактировать</button>`
+          : `<button onclick="editRoomField(${r.id},'notes','Заметки','')" class="text-sm text-ink-400 hover:text-accent-500"><i class="fas fa-plus mr-1"></i>Добавить заметки</button>`}
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5">
+        <h2 class="font-medium text-ink-700 mb-3"><i class="fas fa-flag-checkered mr-2 text-ink-400"></i>Итоги</h2>
+        ${r.outcomes
+          ? `<div class="text-sm text-ink-700 whitespace-pre-line leading-relaxed">${r.outcomes}</div>
+             <button onclick="editRoomField(${r.id},'outcomes','Итоги','${encodeURIComponent(r.outcomes)}')" class="text-xs text-ink-400 hover:underline mt-3">редактировать</button>`
+          : `<button onclick="editRoomField(${r.id},'outcomes','Итоги','')" class="text-sm text-ink-400 hover:text-accent-500"><i class="fas fa-plus mr-1"></i>Добавить итоги</button>`}
+      </div>
+    </div>
 
-        ${r.materials.length ? `
-        <div class="bg-white rounded-xl p-4 border border-ink-100 shadow-sm">
-          <h2 class="font-medium text-ink-700 mb-3 text-sm"><i class="fas fa-inbox mr-2 text-ink-300"></i>Материалы темы</h2>
-          ${r.materials.map(m => `
-            <div class="text-sm mb-2">
-              ${m.url ? `<a href="${m.url}" target="_blank" class="text-accent-600 hover:underline truncate block">${m.title}</a>` : `<span class="text-ink-700">${m.title}</span>`}
-            </div>`).join('')}
-        </div>` : ''}
+    <!-- Задачи после обсуждения -->
+    <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-medium text-ink-700"><i class="fas fa-tasks mr-2 text-purple-400"></i>Задачи после обсуждения</h2>
+        <button onclick="addRoomTask(${r.id})" class="text-xs text-accent-500 hover:underline">+ Добавить</button>
+      </div>
+      ${tasks.length ? `
+      <div class="space-y-2">
+        ${tasks.map((t, i) => `
+          <div class="flex items-start gap-2 text-sm">
+            <button onclick="toggleRoomTask(${r.id}, ${i})" class="mt-0.5 flex-shrink-0">
+              <i class="fas ${t.done ? 'fa-check-circle text-accent-500' : 'fa-circle text-ink-300'} hover:text-accent-400 transition"></i>
+            </button>
+            <span class="${t.done ? 'line-through text-ink-400' : 'text-ink-700'}">${t.text}</span>
+            <button onclick="removeRoomTask(${r.id}, ${i})" class="ml-auto text-ink-300 hover:text-red-400 transition flex-shrink-0">
+              <i class="fas fa-times text-xs"></i>
+            </button>
+          </div>`).join('')}
+      </div>` : '<p class="text-sm text-ink-400">Нет задач</p>'}
+    </div>
+
+    <!-- Связанные материалы и публикации -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5">
+        <h2 class="font-medium text-ink-700 mb-3"><i class="fas fa-inbox mr-2 text-rust-400"></i>Материалы по теме (${r.materials.length})</h2>
+        ${r.materials.length ? r.materials.map(m => `
+          <div class="text-sm mb-2 last:mb-0">
+            <i class="fas ${TYPE_ICON[m.type] || 'fa-file'} text-ink-300 mr-1.5 text-xs"></i>
+            ${m.url ? `<a href="${m.url}" target="_blank" class="text-ink-700 hover:text-accent-600">${m.title}</a>` : `<span class="text-ink-700">${m.title}</span>`}
+          </div>`).join('') : '<p class="text-sm text-ink-400">Нет материалов</p>'}
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5">
+        <h2 class="font-medium text-ink-700 mb-3"><i class="fas fa-play-circle mr-2 text-red-400"></i>Публикации (${r.publications.length})</h2>
+        ${r.publications.length ? r.publications.map(p => `
+          <a href="${p.url}" target="_blank" class="flex items-center gap-2 text-sm mb-2 last:mb-0 hover:text-accent-600 transition">
+            <i class="fas ${PLATFORM_ICON[p.platform]?.split(' ').slice(0,2).join(' ') || 'fa-link'} flex-shrink-0"></i>
+            <span class="truncate">${p.title}</span>
+          </a>`).join('') : '<p class="text-sm text-ink-400">Нет публикаций</p>'}
       </div>
     </div>
   </div>`
 }
 
-function editRoomField(id, field, label, current, multiline) {
-  openModal(`
-  <div class="p-6">
-    <h3 class="text-lg font-semibold mb-4">${label}</h3>
-    <form id="room-field-form" class="space-y-3">
-      ${multiline
-        ? `<textarea name="value" rows="5" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none">${current}</textarea>`
-        : `<input name="value" value="${current}" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">`}
-      <div class="flex justify-end gap-2">
-        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
-        <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Сохранить</button>
-      </div>
-    </form>
-  </div>`)
-  $('#room-field-form')?.addEventListener('submit', async e => {
-    e.preventDefault()
-    await patch(`/rooms/${id}`, { [field]: new FormData(e.target).get('value') })
-    closeModal(); toast(`${label} сохранён`)
-    renderRoomDetail(id)
-  })
+// ── Вспомогательные функции комнат ────────────────────────────
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => toast('Ссылка скопирована')).catch(() => toast('Не удалось скопировать', 'error'))
 }
 
 function changeRoomStatus(id, current) {
   const statuses = ['preparing','active','completed','cancelled']
   openModal(`
   <div class="p-6">
-    <h3 class="text-lg font-semibold mb-4">Статус комнаты</h3>
+    <h3 class="text-lg font-semibold mb-4">Изменить статус комнаты</h3>
     <div class="space-y-2">
       ${statuses.map(s => `
         <button onclick="setRoomStatus(${id},'${s}')" class="w-full text-left px-4 py-2.5 rounded-lg border transition flex items-center justify-between ${s===current ? 'border-accent-400 bg-accent-400/10' : 'border-ink-200 hover:border-ink-300'}">
@@ -1184,25 +1241,72 @@ async function setRoomStatus(id, status) {
   renderRoomDetail(id)
 }
 
-function editParticipants(id) {
+function editRoomField(id, field, label, currentVal = '') {
+  const decoded = currentVal ? decodeURIComponent(currentVal) : ''
   openModal(`
   <div class="p-6">
-    <h3 class="text-lg font-semibold mb-4">Участники (по одному на строку)</h3>
-    <form id="participants-form" class="space-y-3">
-      <textarea name="value" rows="5" placeholder="Макс Рудра&#10;Алина&#10;Иван" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none"></textarea>
+    <h3 class="text-lg font-semibold mb-4">${label}</h3>
+    <form id="room-field-form" class="space-y-3">
+      <textarea name="value" rows="6" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400" placeholder="${label}...">${decoded}</textarea>
       <div class="flex justify-end gap-2">
         <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
         <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Сохранить</button>
       </div>
     </form>
   </div>`)
-  $('#participants-form')?.addEventListener('submit', async e => {
+  $('#room-field-form')?.addEventListener('submit', async e => {
     e.preventDefault()
-    const arr = (new FormData(e.target).get('value') || '').split('\n').map(s=>s.trim()).filter(Boolean)
-    await patch(`/rooms/${id}`, { participants: arr })
-    closeModal(); toast('Участники обновлены')
+    const val = new FormData(e.target).get('value')
+    await patch(`/rooms/${id}`, { [field]: val })
+    closeModal(); toast(`${label} — сохранено`)
     renderRoomDetail(id)
   })
+}
+
+// ── Задачи (хранятся как JSON-массив в поле tasks) ────────────
+// Формат: [{"text": "...", "done": false}, ...]
+
+async function getRoomTasks(roomId) {
+  const r = await get(`/rooms/${roomId}`)
+  try { return JSON.parse(r.tasks || '[]') } catch { return [] }
+}
+
+function addRoomTask(roomId) {
+  openModal(`
+  <div class="p-6">
+    <h3 class="text-lg font-semibold mb-4">Новая задача</h3>
+    <form id="task-form" class="space-y-3">
+      <input name="text" required placeholder="Что нужно сделать..." class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500 hover:text-ink-700">Отмена</button>
+        <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Добавить</button>
+      </div>
+    </form>
+  </div>`)
+  $('#task-form')?.addEventListener('submit', async e => {
+    e.preventDefault()
+    const text = new FormData(e.target).get('text')
+    const tasks = await getRoomTasks(roomId)
+    tasks.push({ text, done: false })
+    await patch(`/rooms/${roomId}`, { tasks })
+    closeModal(); toast('Задача добавлена')
+    renderRoomDetail(roomId)
+  })
+}
+
+async function toggleRoomTask(roomId, index) {
+  const tasks = await getRoomTasks(roomId)
+  if (tasks[index]) tasks[index].done = !tasks[index].done
+  await patch(`/rooms/${roomId}`, { tasks })
+  renderRoomDetail(roomId)
+}
+
+async function removeRoomTask(roomId, index) {
+  const tasks = await getRoomTasks(roomId)
+  tasks.splice(index, 1)
+  await patch(`/rooms/${roomId}`, { tasks })
+  toast('Задача удалена')
+  renderRoomDetail(roomId)
 }
 
 // ─────────────────────────────────────────────────────────────
