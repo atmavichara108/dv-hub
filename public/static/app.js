@@ -1328,28 +1328,24 @@ async function renderRoomDetail(id) {
       </div>
     </div>
 
-    <!-- Кнопка звонка -->
+    <!-- Видеозвонок -->
     <div class="bg-gradient-to-r from-ink-800 to-ink-900 rounded-xl p-5 mb-4 text-white">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 class="font-medium mb-1"><i class="fas fa-video mr-2 text-accent-400"></i>Видеозвонок</h2>
-          <p class="text-ink-300 text-xs">Jitsi Meet — бесплатный групповой звонок, без регистрации</p>
+          <p class="text-ink-300 text-xs">Jitsi Meet — групповой звонок, без регистрации</p>
         </div>
         <div class="flex gap-2">
           <button onclick="copyToClipboard('${jitsiUrl}')" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Скопировать ссылку">
             <i class="fas fa-copy mr-1"></i>Ссылка
           </button>
-          <a href="${jitsiUrl}" target="_blank" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
+          <button id="jitsi-toggle-btn" onclick="toggleJitsi('${jitsiRoom}')" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
             <i class="fas fa-phone-alt mr-1.5"></i>Начать звонок
-          </a>
+          </button>
         </div>
       </div>
       <div id="jitsi-container" class="mt-4 hidden">
-        <iframe id="jitsi-iframe" allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
-          class="w-full rounded-lg border-2 border-ink-700" style="height: 500px;"></iframe>
-        <button onclick="closeJitsi()" class="mt-2 text-xs text-ink-400 hover:text-white transition">
-          <i class="fas fa-compress mr-1"></i>Свернуть
-        </button>
+        <div id="jitsi-meet" class="w-full rounded-lg overflow-hidden" style="height: 520px;"></div>
       </div>
     </div>
 
@@ -1437,6 +1433,100 @@ async function renderRoomDetail(id) {
       </div>
     </div>
   </div>`
+}
+
+// ── Jitsi Meet: встроенный звонок ─────────────────────────────
+// Jitsi IFrame API — официальный способ встраивать Jitsi в свой сайт.
+// Загружаем API-скрипт динамически, создаём iframe с настройками.
+// Передаём имя пользователя из currentUser, настраиваем интерфейс.
+
+let jitsiApi = null  // ссылка на текущий экземпляр Jitsi API
+
+function toggleJitsi(roomName) {
+  const container = document.getElementById('jitsi-container')
+  const btn = document.getElementById('jitsi-toggle-btn')
+
+  if (jitsiApi) {
+    // Звонок активен — останавливаем
+    jitsiApi.dispose()  // уничтожает iframe и отключает от комнаты
+    jitsiApi = null
+    container.classList.add('hidden')
+    btn.innerHTML = '<i class="fas fa-phone-alt mr-1.5"></i>Начать звонок'
+    btn.classList.remove('bg-red-500', 'hover:bg-red-600')
+    btn.classList.add('bg-accent-500', 'hover:bg-accent-600')
+    return
+  }
+
+  // Запускаем звонок
+  container.classList.remove('hidden')
+  btn.innerHTML = '<i class="fas fa-phone-slash mr-1.5"></i>Завершить'
+  btn.classList.remove('bg-accent-500', 'hover:bg-accent-600')
+  btn.classList.add('bg-red-500', 'hover:bg-red-600')
+
+  // Загружаем Jitsi IFrame API если ещё не загружен
+  loadJitsiApi(() => {
+    const displayName = currentUser ? currentUser.name : 'Гость'
+    const avatarUrl = currentUser ? currentUser.avatar_url : ''
+
+    jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', {
+      roomName: roomName,
+      parentNode: document.getElementById('jitsi-meet'),
+      width: '100%',
+      height: 520,
+      configOverrides: {
+        startWithAudioMuted: true,       // микрофон выключен при входе
+        startWithVideoMuted: false,      // камера включена
+        prejoinPageEnabled: false,        // пропускаем экран "готовы войти?"
+        disableDeepLinking: true,         // не предлагать установить приложение
+        defaultLanguage: 'ru',
+        toolbarButtons: [
+          'microphone', 'camera', 'desktop', 'fullscreen',
+          'chat', 'raisehand', 'participants-pane',
+          'tileview', 'settings', 'hangup'
+        ],
+      },
+      interfaceConfigOverrides: {
+        SHOW_JITSI_WATERMARK: false,
+        SHOW_WATERMARK_FOR_GUESTS: false,
+        SHOW_BRAND_WATERMARK: false,
+        TOOLBAR_ALWAYS_VISIBLE: true,
+        DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+        FILM_STRIP_MAX_HEIGHT: 120,
+      },
+      userInfo: {
+        displayName: displayName,
+        avatarURL: avatarUrl || undefined,
+      }
+    })
+
+    // Если участник нажал "повесить трубку" внутри Jitsi
+    jitsiApi.addListener('readyToClose', () => {
+      toggleJitsi(roomName)  // переключаем обратно в режим "начать"
+    })
+  })
+}
+
+// Загрузка Jitsi IFrame API скрипта (один раз)
+function loadJitsiApi(callback) {
+  if (window.JitsiMeetExternalAPI) {
+    callback()
+    return
+  }
+  const script = document.createElement('script')
+  script.src = 'https://meet.jit.si/external_api.js'
+  script.onload = callback
+  script.onerror = () => toast('Не удалось загрузить Jitsi', 'error')
+  document.head.appendChild(script)
+}
+
+// Очистка при уходе со страницы комнаты
+const originalNavigate = navigate
+navigate = function(path, push = true) {
+  if (jitsiApi) {
+    jitsiApi.dispose()
+    jitsiApi = null
+  }
+  originalNavigate(path, push)
 }
 
 // ── Вспомогательные функции комнат ────────────────────────────
