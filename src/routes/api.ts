@@ -189,7 +189,6 @@ api.get('/users', async (c) => {
 })
 
 // ── ADMIN: управление пользователями ──────────────────────────
-import { getCookie } from 'hono/cookie'
 
 api.get('/admin/users', async (c) => {
   const result = await c.env.DB.prepare(
