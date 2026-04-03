@@ -249,8 +249,6 @@ async function renderRoomDetail(id) {
 // Загружаем API-скрипт динамически, создаём iframe с настройками.
 // Передаём имя пользователя из currentUser, настраиваем интерфейс.
 
-let jitsiApi = null  // ссылка на текущий экземпляр Jitsi API
-
 function toggleJitsi(roomName) {
   const container = document.getElementById('jitsi-container')
   const btn = document.getElementById('jitsi-toggle-btn')
