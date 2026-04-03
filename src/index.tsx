@@ -142,5 +142,9 @@ app.get('/rooms', (c) => page(c, 'Дискуссии'))
 app.get('/rooms/*', (c) => page(c, 'Дискуссии'))
 app.get('/media', (c) => page(c, 'Медиа'))
 app.get('/login', (c) => page(c, 'Вход'))
+app.get('/admin', (c) => page(c, 'Админка'))
+app.get('/admin/*', (c) => page(c, 'Админка'))
+app.get('/profile', (c) => page(c, 'Профиль'))
+
 
 export default app
