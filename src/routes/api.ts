@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { getCookie } from 'hono/cookie'
 
 type Bindings = {
   DB: D1Database
@@ -185,6 +186,63 @@ api.post('/submit-idea', async (c) => {
 api.get('/users', async (c) => {
   const result = await c.env.DB.prepare(`SELECT id, name, role, created_at, last_seen FROM users ORDER BY created_at ASC`).all()
   return c.json(result.results)
+})
+
+// ── ADMIN: управление пользователями ──────────────────────────
+import { getCookie } from 'hono/cookie'
+
+api.get('/admin/users', async (c) => {
+  const result = await c.env.DB.prepare(
+    `SELECT id, name, telegram_id, email, avatar_url, role, cell_id, created_at, last_seen FROM users ORDER BY created_at ASC`
+  ).all()
+  return c.json(result.results)
+})
+
+api.patch('/admin/users/:id', async (c) => {
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const fields = Object.keys(body).filter(k => ['name', 'role', 'email'].includes(k))
+  if (!fields.length) return c.json({ error: 'nothing to update' }, 400)
+  const set = fields.map(f => `${f} = ?`).join(', ')
+  const vals = fields.map(f => body[f])
+  await c.env.DB.prepare(`UPDATE users SET ${set} WHERE id = ?`).bind(...vals, id).run()
+  return c.json({ ok: true })
+})
+
+api.delete('/admin/users/:id', async (c) => {
+  const id = c.req.param('id')
+  await c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id).run()
+  await c.env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(id).run()
+  return c.json({ ok: true })
+})
+
+// ── PROFILE ───────────────────────────────────────────────────
+api.get('/profile', async (c) => {
+  const sessionId = getCookie(c, 'session')
+  if (!sessionId) return c.json({ error: 'unauthorized' }, 401)
+  const user = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.telegram_id, u.email, u.avatar_url, u.role, u.created_at, u.last_seen
+     FROM sessions s JOIN users u ON s.user_id = u.id
+     WHERE s.id = ? AND s.expires_at > datetime('now')`
+  ).bind(sessionId).first()
+  if (!user) return c.json({ error: 'unauthorized' }, 401)
+  return c.json(user)
+})
+
+api.patch('/profile', async (c) => {
+  const sessionId = getCookie(c, 'session')
+  if (!sessionId) return c.json({ error: 'unauthorized' }, 401)
+  const session = await c.env.DB.prepare(
+    `SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')`
+  ).bind(sessionId).first()
+  if (!session) return c.json({ error: 'unauthorized' }, 401)
+  const body = await c.req.json()
+  const fields = Object.keys(body).filter(k => ['name'].includes(k))
+  if (!fields.length) return c.json({ error: 'nothing to update' }, 400)
+  const set = fields.map(f => `${f} = ?`).join(', ')
+  const vals = fields.map(f => body[f])
+  await c.env.DB.prepare(`UPDATE users SET ${set} WHERE id = ?`).bind(...vals, session.user_id).run()
+  return c.json({ ok: true })
 })
 
 export default api
