@@ -14,6 +14,7 @@ const modules = [
   '/static/modules/media.js',
   '/static/modules/admin.js',
   '/static/modules/profile.js',
+  '/static/modules/faq.js',
   '/static/modules/router.js',  // последний — зависит от всех рендереров
 ]
 

@@ -24,6 +24,7 @@ function navigate(path, push = true) {
   if (page === 'media') return renderMedia()
   if (page === 'admin') return renderAdmin()
   if (page === 'profile') return renderProfile()
+  if (page === 'faq') return renderFAQ()
   renderDashboard()
 }
 

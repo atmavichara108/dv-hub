@@ -43,7 +43,15 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="${title} · Дискуссионные Вечера">
+  <meta property="og:description" content="Платформа для организации и проведения интеллектуальных дискуссий. Материалы, темы, видеозвонки, совместный анализ.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://dv-hub.pages.dev/static/og-image.png">
+  <meta property="og:url" content="https://dv-hub.pages.dev">
+  <meta name="description" content="DV Hub — платформа для организации и проведения дискуссионных вечеров. Материалы, темы, комнаты, видеозвонки.">
   <title>${title} · Дискуссионные Вечера</title>
+
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <script>
@@ -93,6 +101,7 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
         <a href="/topics" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="topics"><i class="fas fa-layer-group mr-1.5"></i><span class="hidden md:inline">Темы</span></a>
         <a href="/rooms" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="rooms"><i class="fas fa-comments mr-1.5"></i><span class="hidden md:inline">Дискуссии</span></a>
         <a href="/media" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="media"><i class="fas fa-play-circle mr-1.5"></i><span class="hidden md:inline">Медиа</span></a>
+        <a href="/faq" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="faq"><i class="fas fa-question-circle mr-1.5"></i><span class="hidden md:inline">FAQ</span></a>
       </div>
       <div id="auth-nav" class="ml-2"></div>
     </div>
@@ -105,6 +114,7 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
       <a href="/topics" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="topics" onclick="closeMobileMenu()"><i class="fas fa-layer-group mr-2"></i>Темы</a>
       <a href="/rooms" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="rooms" onclick="closeMobileMenu()"><i class="fas fa-comments mr-2"></i>Дискуссии</a>
       <a href="/media" class="nav-link px-3 py-2 rounded hover:bg-ink-700 transition text-sm" data-page="media" onclick="closeMobileMenu()"><i class="fas fa-play-circle mr-2"></i>Медиа</a>
+      <a href="/faq" class="nav-link px-3 py-1.5 rounded hover:bg-ink-700 transition" data-page="faq"><i class="fas fa-question-circle mr-1.5"></i><span class="hidden md:inline">FAQ</span></a>
     </div>
   </div>
 </nav>
@@ -140,10 +150,10 @@ app.get('/topics/*', (c) => page(c, 'Темы'))
 app.get('/rooms', (c) => page(c, 'Дискуссии'))
 app.get('/rooms/*', (c) => page(c, 'Дискуссии'))
 app.get('/media', (c) => page(c, 'Медиа'))
+app.get('/faq', (c) => page(c, 'FAQ'))
 app.get('/login', (c) => page(c, 'Вход'))
 app.get('/admin', (c) => page(c, 'Админка'))
 app.get('/admin/*', (c) => page(c, 'Админка'))
 app.get('/profile', (c) => page(c, 'Профиль'))
-
 
 export default app
