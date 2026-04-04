@@ -36,7 +36,14 @@ async function renderMedia() {
   </div>`
 }
 
-function addPublicationModal() {
+async function addPublicationModal() {
+  // Загружаем список тем для привязки
+  let topicsOptions = '<option value="">— Без привязки —</option>'
+  try {
+    const topics = await get('/topics')
+    topicsOptions += topics.map(t => `<option value="${t.id}">${t.title}</option>`).join('')
+  } catch {}
+
   openModal(`
   <div class="p-6">
     <h3 class="text-lg font-semibold mb-4">Добавить публикацию</h3>
@@ -47,7 +54,7 @@ function addPublicationModal() {
       </div>
       <div>
         <label class="block text-xs text-ink-500 mb-1">URL *</label>
-        <input name="url" required type="url" placeholder="https://..." class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+        <input name="url" type="url" required class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -72,6 +79,12 @@ function addPublicationModal() {
         </div>
       </div>
       <div>
+        <label class="block text-xs text-ink-500 mb-1">Привязать к теме</label>
+        <select name="topic_id" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+          ${topicsOptions}
+        </select>
+      </div>
+      <div>
         <label class="block text-xs text-ink-500 mb-1">Описание</label>
         <textarea name="description" rows="2" class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400 resize-none"></textarea>
       </div>
@@ -85,12 +98,19 @@ function addPublicationModal() {
   $('#pub-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     const fd = new FormData(e.target)
-    await post('/publications', {
-      title: fd.get('title'), url: fd.get('url'), platform: fd.get('platform'),
-      type: fd.get('type'), description: fd.get('description') || undefined
-    })
-    closeModal(); toast('Публикация добавлена')
-    renderMedia()
+    try {
+      await post('/publications', {
+        title: fd.get('title'),
+        url: fd.get('url'),
+        platform: fd.get('platform'),
+        type: fd.get('type'),
+        description: fd.get('description') || undefined,
+        topic_id: fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined
+      })
+      closeModal(); toast('Публикация добавлена')
+      renderMedia()
+    } catch (err) {
+      toast('Ошибка: ' + (err.response?.data?.error || err.message), 'error')
+    }
   })
 }
-

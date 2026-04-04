@@ -113,20 +113,40 @@ function addMaterialModal() {
   // Загружаем список тем для привязки
   loadTopicSelect('material-topic-select', null, 'topic_id')
 
+
   $('#material-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     const fd = new FormData(e.target)
-    const tagsRaw = fd.get('tags') || ''
-    const tagsArr = tagsRaw.split(',').map(t => t.trim()).filter(Boolean)
-    const topicId = fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined
-    await post('/materials', {
-      title: fd.get('title'), url: fd.get('url') || undefined,
-      description: fd.get('description') || undefined, type: fd.get('type'),
-      tags: tagsArr, topic_id: topicId
-    })
-    closeModal(); toast('Материал добавлен')
-    renderMaterials()
+    const tagsRaw = fd.get('tags')
+    try {
+      await post('/materials', {
+        title: fd.get('title'),
+        url: fd.get('url') || undefined,
+        description: fd.get('description') || undefined,
+        type: fd.get('type'),
+        tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [],
+        topic_id: fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined
+      })
+      closeModal(); toast('Материал добавлен')
+      renderMaterials()
+    } catch (err) {
+      toast('Ошибка: ' + (err.response?.data?.error || err.message), 'error')
+    }
   })
+  // $('#material-form')?.addEventListener('submit', async e => {
+  //   e.preventDefault()
+  //   const fd = new FormData(e.target)
+  //   const tagsRaw = fd.get('tags') || ''
+  //   const tagsArr = tagsRaw.split(',').map(t => t.trim()).filter(Boolean)
+  //   const topicId = fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined
+  //   await post('/materials', {
+  //     title: fd.get('title'), url: fd.get('url') || undefined,
+  //     description: fd.get('description') || undefined, type: fd.get('type'),
+  //     tags: tagsArr, topic_id: topicId
+  //   })
+  //   closeModal(); toast('Материал добавлен')
+  //   renderMaterials()
+  // })
 }
 
 // Загрузить выпадающий список тем в контейнер

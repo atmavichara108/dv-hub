@@ -264,17 +264,38 @@ function addTopicModal() {
     </form>
   </div>`)
 
+
   $('#topic-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     const fd = new FormData(e.target)
-    const tagsArr = (fd.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean)
-    await post('/topics', {
-      title: fd.get('title'), question: fd.get('question') || undefined,
-      priority: fd.get('priority'), is_public: parseInt(fd.get('is_public')), tags: tagsArr
-    })
-    closeModal(); toast('Тема создана')
-    renderTopics()
+    const tagsRaw = fd.get('tags')
+    try {
+      await post('/topics', {
+        title: fd.get('title'),
+        question: fd.get('question') || undefined,
+        thesis: fd.get('thesis') || undefined,
+        antithesis: fd.get('antithesis') || undefined,
+        priority: fd.get('priority'),
+        tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [],
+        is_public: parseInt(fd.get('is_public'))
+      })
+      closeModal(); toast('Тема создана')
+      renderTopics()
+    } catch (err) {
+      toast('Ошибка: ' + (err.response?.data?.error || err.message), 'error')
+    }
   })
+  // $('#topic-form')?.addEventListener('submit', async e => {
+  //   e.preventDefault()
+  //   const fd = new FormData(e.target)
+  //   const tagsArr = (fd.get('tags') || '').split(',').map(t => t.trim()).filter(Boolean)
+  //   await post('/topics', {
+  //     title: fd.get('title'), question: fd.get('question') || undefined,
+  //     priority: fd.get('priority'), is_public: parseInt(fd.get('is_public')), tags: tagsArr
+  //   })
+  //   closeModal(); toast('Тема создана')
+  //   renderTopics()
+  // })
 }
 
 async function renderTopicDetail(id) {

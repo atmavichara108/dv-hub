@@ -85,18 +85,35 @@ function addRoomModal() {
     </form>
   </div>`)
 
+
   $('#room-form')?.addEventListener('submit', async e => {
     e.preventDefault()
     const fd = new FormData(e.target)
-    await post('/rooms', {
-      title: fd.get('title'),
-      description: fd.get('description') || undefined,
-      scheduled_at: fd.get('scheduled_at') || undefined,
-      is_public: parseInt(fd.get('is_public'))
-    })
-    closeModal(); toast('Комната создана')
-    renderRooms()
+    try {
+      await post('/rooms', {
+        title: fd.get('title'),
+        description: fd.get('description') || undefined,
+        scheduled_at: fd.get('scheduled_at') || undefined,
+        is_public: parseInt(fd.get('is_public'))
+      })
+      closeModal(); toast('Комната создана')
+      renderRooms()
+    } catch (err) {
+      toast('Ошибка: ' + (err.response?.data?.error || err.message), 'error')
+    }
   })
+  // $('#room-form')?.addEventListener('submit', async e => {
+  //   e.preventDefault()
+  //   const fd = new FormData(e.target)
+  //   await post('/rooms', {
+  //     title: fd.get('title'),
+  //     description: fd.get('description') || undefined,
+  //     scheduled_at: fd.get('scheduled_at') || undefined,
+  //     is_public: parseInt(fd.get('is_public'))
+  //   })
+  //   closeModal(); toast('Комната создана')
+  //   renderRooms()
+  // })
 }
 
 async function renderRoomDetail(id) {
