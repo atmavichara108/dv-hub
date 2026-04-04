@@ -131,9 +131,36 @@ async function renderRoomDetail(id) {
       ${r.topic_title ? `<a href="/topics/${r.topic_id}" class="inline-block text-sm text-accent-500 hover:underline mb-3"><i class="fas fa-layer-group mr-1"></i>${r.topic_title}</a>` : ''}
       ${r.description ? `<p class="text-sm text-ink-500 mb-3">${r.description}</p>` : ''}
       <div class="flex items-center gap-4 text-xs text-ink-400 flex-wrap">
-        ${r.scheduled_at ? `<span><i class="fas fa-calendar mr-1"></i>${fdate(r.scheduled_at)}</span>` : '<span class="italic">Дата не назначена</span>'}
+        <span class="cursor-pointer hover:text-accent-500 transition" onclick="editRoomDate(${r.id}, '${r.scheduled_at || ''}')">
+          <i class="fas fa-calendar mr-1"></i>${r.scheduled_at ? fdate(r.scheduled_at) : '<em>Назначить дату</em>'}
+          <i class="fas fa-pencil-alt ml-1 text-ink-300 text-[10px]"></i>
+        </span>
         ${r.is_public ? '<span class="text-accent-500"><i class="fas fa-globe mr-1"></i>Публичная</span>' : '<span><i class="fas fa-lock mr-1"></i>Приватная</span>'}
         <span><i class="fas fa-users mr-1"></i>${participants.length} участников</span>
+      </div>
+
+      <!-- Участники и кнопка записи -->
+      <div class="mt-4 pt-3 border-t border-ink-100">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <span class="text-xs font-medium text-ink-500"><i class="fas fa-users mr-1"></i>Участники</span>
+          ${currentUser
+            ? (participants.some(p => p.id === currentUser.id)
+              ? `<button onclick="leaveRoom(${r.id})" class="text-xs text-red-400 hover:text-red-600 transition"><i class="fas fa-user-minus mr-1"></i>Отписаться</button>`
+              : `<button onclick="joinRoom(${r.id})" class="text-xs bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded-full transition"><i class="fas fa-user-plus mr-1"></i>Участвовать</button>`)
+            : `<span class="text-xs text-ink-300"><a href="#" onclick="event.preventDefault(); showLoginModal()" class="text-accent-500 hover:underline">Войдите</a> для записи</span>`
+          }
+        </div>
+        ${participants.length ? `
+        <div class="flex flex-wrap gap-2">
+          ${participants.map(p => `
+            <div class="flex items-center gap-1.5 bg-ink-50 rounded-full pl-1 pr-2.5 py-1">
+              ${p.avatar_url
+                ? `<img src="${p.avatar_url}" class="w-5 h-5 rounded-full">`
+                : `<div class="w-5 h-5 rounded-full bg-accent-500 flex items-center justify-center text-white text-[10px] font-bold">${(p.name || '?')[0].toUpperCase()}</div>`
+              }
+              <span class="text-xs text-ink-600">${p.name}</span>
+            </div>`).join('')}
+        </div>` : '<p class="text-xs text-ink-300">Пока никто не записался</p>'}
       </div>
     </div>
 
@@ -241,7 +268,32 @@ async function renderRoomDetail(id) {
           </a>`).join('') : '<p class="text-sm text-ink-400">Нет публикаций</p>'}
       </div>
     </div>
+
+    <!-- Чат комнаты -->
+    <div class="bg-white rounded-xl shadow-sm border border-ink-100 p-5 mb-4 mt-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-medium text-ink-700"><i class="fas fa-comment-dots mr-2 text-accent-400"></i>Чат обсуждения</h2>
+        <button onclick="loadRoomMessages(${r.id})" class="text-xs text-ink-400 hover:text-accent-500"><i class="fas fa-sync-alt mr-1"></i>Обновить</button>
+      </div>
+      <div id="chat-messages" class="space-y-3 max-h-[400px] overflow-y-auto mb-4 scroll-smooth">
+        <div class="text-center py-4 text-ink-300 text-sm"><i class="fas fa-circle-notch fa-spin mr-1"></i>Загрузка...</div>
+      </div>
+      ${currentUser ? `
+      <form id="chat-form" class="flex gap-2" onsubmit="sendRoomMessage(event, ${r.id})">
+        <input id="chat-input" name="text" required placeholder="Сообщение... (@имя, #тема, **жирный**)"
+          class="flex-1 border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400"
+          autocomplete="off">
+        <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </form>` : `
+      <p class="text-xs text-ink-400 text-center py-2"><a href="#" onclick="event.preventDefault(); showLoginModal()" class="text-accent-500 hover:underline">Войдите</a> чтобы писать в чат</p>`}
+    </div>
   </div>`
+
+  // Загружаем сообщения чата
+  loadRoomMessages(id)
+
 }
 
 // ── Jitsi Meet: встроенный звонок ─────────────────────────────
@@ -375,6 +427,38 @@ function editRoomField(id, field, label, currentVal = '') {
   })
 }
 
+
+function editRoomDate(roomId, currentDate) {
+  const val = currentDate && currentDate !== 'null' ? currentDate.slice(0, 16) : ''
+  openModal(`
+  <div class="p-6">
+    <h3 class="text-lg font-semibold mb-4">Дата и время дискуссии</h3>
+    <form id="room-date-form" class="space-y-3">
+      <input name="scheduled_at" type="datetime-local" value="${val}"
+        class="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent-400">
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm text-ink-500">Отмена</button>
+        ${val ? `<button type="button" onclick="clearRoomDate(${roomId})" class="px-4 py-2 text-sm text-red-500 hover:text-red-700">Убрать дату</button>` : ''}
+        <button type="submit" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Сохранить</button>
+      </div>
+    </form>
+  </div>`)
+  $('#room-date-form')?.addEventListener('submit', async e => {
+    e.preventDefault()
+    const date = new FormData(e.target).get('scheduled_at')
+    if (!date) return toast('Выберите дату', 'error')
+    await patch(`/rooms/${roomId}`, { scheduled_at: date })
+    closeModal(); toast('Дата назначена')
+    renderRoomDetail(roomId)
+  })
+}
+
+async function clearRoomDate(roomId) {
+  await patch(`/rooms/${roomId}`, { scheduled_at: null })
+  closeModal(); toast('Дата убрана')
+  renderRoomDetail(roomId)
+}
+
 // ── Задачи (хранятся как JSON-массив в поле tasks) ────────────
 // Формат: [{"text": "...", "done": false}, ...]
 
@@ -420,3 +504,104 @@ async function removeRoomTask(roomId, index) {
   toast('Задача удалена')
   renderRoomDetail(roomId)
 }
+
+// ── Чат комнаты ───────────────────────────────────────────────
+
+async function loadRoomMessages(roomId) {
+  const container = document.getElementById('chat-messages')
+  if (!container) return
+  const messages = await get(`/rooms/${roomId}/messages`)
+  if (!messages.length) {
+    container.innerHTML = '<p class="text-center text-ink-300 text-sm py-4">Пока нет сообщений. Начните обсуждение.</p>'
+    return
+  }
+  container.innerHTML = messages.map(m => renderChatMessage(m)).join('')
+  container.scrollTop = container.scrollHeight
+}
+
+function renderChatMessage(m) {
+  const time = dayjs(m.created_at).format('D MMM, HH:mm')
+  const avatar = m.author_avatar
+    ? `<img src="${m.author_avatar}" class="w-7 h-7 rounded-full flex-shrink-0">`
+    : `<div class="w-7 h-7 rounded-full bg-accent-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">${(m.author_name || '?')[0].toUpperCase()}</div>`
+  const roleColor = { admin:'text-red-500', moderator:'text-purple-500', researcher:'text-blue-500', expert:'text-yellow-600' }
+  const roleBadge = roleColor[m.author_role] ? `<span class="${roleColor[m.author_role]} text-xs ml-1">${m.author_role}</span>` : ''
+  const html = formatChatText(m.text)
+  return `
+<div class="flex gap-2.5 group">
+${avatar}
+<div class="flex-1 min-w-0">
+<div class="flex items-baseline gap-2 flex-wrap">
+<span class="text-sm font-medium text-ink-800">${m.author_name || 'Аноним'}</span>
+${roleBadge}
+<span class="text-xs text-ink-300">${time}</span>
+</div>
+<div class="text-sm text-ink-700 mt-0.5 leading-relaxed chat-text">${html}</div>
+</div>
+</div>`
+}
+
+function formatChatText(text) {
+  let s = text
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  // markdown: **bold**, *italic*, `code`, ~~strike~~
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  s = s.replace(/`(.+?)`/g, '<code class="bg-ink-100 px-1 rounded text-xs">$1</code>')
+  s = s.replace(/~~(.+?)~~/g, '<del class="text-ink-400">$1</del>')
+  // @mentions
+  s = s.replace(/@(\S+)/g, '<span class="text-accent-600 font-medium cursor-pointer hover:underline">@$1</span>')
+  // #topics
+  s = s.replace(/#(\S+)/g, '<a href="#" onclick="event.preventDefault(); searchByTag(\'$1\')" class="text-blue-500 hover:underline">#$1</a>')
+  // newlines
+  s = s.replace(/\n/g, '<br>')
+  return s
+}
+
+async function sendRoomMessage(e, roomId) {
+  e.preventDefault()
+  const input = document.getElementById('chat-input')
+  const text = input.value.trim()
+  if (!text) return
+  input.disabled = true
+  try {
+    await post(`/rooms/${roomId}/messages`, {
+      text,
+      user_id: currentUser ? currentUser.id : null
+    })
+    input.value = ''
+    await loadRoomMessages(roomId)
+  } catch (err) {
+    toast('Ошибка отправки', 'error')
+  }
+  input.disabled = false
+  input.focus()
+}
+
+async function joinRoom(roomId) {
+  if (!currentUser) { showLoginModal(); return }
+  const r = await get(`/rooms/${roomId}`)
+  let participants = []
+  try { participants = JSON.parse(r.participants || '[]') } catch {}
+  const already = participants.some(p => p.id === currentUser.id)
+  if (already) {
+    toast('Вы уже участвуете')
+    return
+  }
+  participants.push({ id: currentUser.id, name: currentUser.name, avatar_url: currentUser.avatar_url || null })
+  await patch(`/rooms/${roomId}`, { participants })
+  toast('Вы записались на дискуссию')
+  renderRoomDetail(roomId)
+}
+
+async function leaveRoom(roomId) {
+  if (!currentUser) return
+  const r = await get(`/rooms/${roomId}`)
+  let participants = []
+  try { participants = JSON.parse(r.participants || '[]') } catch {}
+  participants = participants.filter(p => p.id !== currentUser.id)
+  await patch(`/rooms/${roomId}`, { participants })
+  toast('Вы отписались')
+  renderRoomDetail(roomId)
+}
+

@@ -244,4 +244,25 @@ api.patch('/profile', async (c) => {
   return c.json({ ok: true })
 })
 
+// ── CHAT MESSAGES ─────────────────────────────────────────────
+api.get('/rooms/:id/messages', async (c) => {
+  const roomId = c.req.param('id')
+  const result = await c.env.DB.prepare(
+    `SELECT m.*, u.name as author_name, u.avatar_url as author_avatar, u.role as author_role
+     FROM messages m LEFT JOIN users u ON m.user_id = u.id
+     WHERE m.room_id = ? ORDER BY m.created_at ASC`
+  ).bind(roomId).all()
+  return c.json(result.results)
+})
+
+api.post('/rooms/:id/messages', async (c) => {
+  const roomId = c.req.param('id')
+  const { text, user_id } = await c.req.json()
+  if (!text || !text.trim()) return c.json({ error: 'empty message' }, 400)
+  const result = await c.env.DB.prepare(
+    `INSERT INTO messages (room_id, user_id, text) VALUES (?, ?, ?)`
+  ).bind(roomId, user_id || null, text.trim()).run()
+  return c.json({ id: result.meta.last_row_id }, 201)
+})
+
 export default api
