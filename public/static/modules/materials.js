@@ -125,7 +125,8 @@ function addMaterialModal() {
         description: fd.get('description') || undefined,
         type: fd.get('type'),
         tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [],
-        topic_id: fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined
+        topic_id: fd.get('topic_id') ? parseInt(fd.get('topic_id')) : undefined,
+        author_id: currentUser ? currentUser.id : null
       })
       closeModal(); toast('Материал добавлен')
       renderMaterials()
@@ -273,3 +274,14 @@ async function archiveMaterial(id) {
   renderMaterials()
 }
 
+function deleteMaterial(id) {
+  confirmDelete('Материал будет полностью удалён.', async () => {
+    try {
+      await del(`/materials/${id}/permanent`)
+      toast('Материал удалён')
+      renderMaterials()
+    } catch (err) {
+      toast('Ошибка удаления', 'error')
+    }
+  })
+}

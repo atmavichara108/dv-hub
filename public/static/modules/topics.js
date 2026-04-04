@@ -277,7 +277,8 @@ function addTopicModal() {
         antithesis: fd.get('antithesis') || undefined,
         priority: fd.get('priority'),
         tags: tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [],
-        is_public: parseInt(fd.get('is_public'))
+        is_public: parseInt(fd.get('is_public')),
+        owner_id: currentUser ? currentUser.id : null
       })
       closeModal(); toast('Тема создана')
       renderTopics()
@@ -314,6 +315,11 @@ async function renderTopicDetail(id) {
           <button onclick="changeTopicStatus(${t.id}, '${t.status}')" class="text-xs text-ink-400 hover:text-ink-700 px-2 py-1 rounded border border-ink-200 hover:border-ink-400 transition">
             Изменить
           </button>
+
+          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `
+          <button onclick="deleteTopic(${t.id})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded border border-red-200 hover:border-red-400 transition">
+            <i class="fas fa-trash"></i>
+          </button>` : ''}
         </div>
       </div>
 
@@ -459,10 +465,22 @@ function createRoomForTopic(topicId, topicTitle) {
     await post('/rooms', {
       topic_id: topicId, title: fd.get('title'),
       description: fd.get('description') || undefined,
-      scheduled_at: fd.get('scheduled_at') || undefined
+      scheduled_at: fd.get('scheduled_at') || undefined,
+      created_by: currentUser ? currentUser.id : null
     })
     closeModal(); toast('Комната создана')
     renderTopicDetail(topicId)
   })
 }
 
+function deleteTopic(id) {
+  confirmDelete('Тема, все связанные дискуссии и публикации будут удалены. Материалы отвяжутся.', async () => {
+    try {
+      await del(`/topics/${id}`)
+      toast('Тема удалена')
+      navigate('/topics')
+    } catch (err) {
+      toast('Ошибка удаления', 'error')
+    }
+  })
+}

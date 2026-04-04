@@ -94,7 +94,8 @@ function addRoomModal() {
         title: fd.get('title'),
         description: fd.get('description') || undefined,
         scheduled_at: fd.get('scheduled_at') || undefined,
-        is_public: parseInt(fd.get('is_public'))
+        is_public: parseInt(fd.get('is_public')),
+        created_by: currentUser ? currentUser.id : null
       })
       closeModal(); toast('Комната создана')
       renderRooms()
@@ -139,6 +140,11 @@ async function renderRoomDetail(id) {
         <button onclick="changeRoomStatus(${r.id}, '${r.status}')" class="text-xs text-ink-400 hover:text-ink-700 px-2 py-1 rounded border border-ink-200 hover:border-ink-400 transition">
           Статус
         </button>
+
+        ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `
+        <button onclick="deleteRoom(${r.id})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded border border-red-200 hover:border-red-400 transition">
+          <i class="fas fa-trash"></i>
+        </button>` : ''}
       </div>
     </div>
 
@@ -622,3 +628,14 @@ async function leaveRoom(roomId) {
   renderRoomDetail(roomId)
 }
 
+function deleteRoom(id) {
+  confirmDelete('Комната, чат и связанные публикации будут удалены.', async () => {
+    try {
+      await del(`/rooms/${id}`)
+      toast('Комната удалена')
+      navigate('/rooms')
+    } catch (err) {
+      toast('Ошибка удаления', 'error')
+    }
+  })
+}

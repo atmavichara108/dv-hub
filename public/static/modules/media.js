@@ -26,9 +26,13 @@ async function renderMedia() {
           <div class="p-4">
             <div class="font-medium text-sm text-ink-800 group-hover:text-accent-600 transition mb-1">${p.title}</div>
             ${p.description ? `<p class="text-xs text-ink-400 mb-2 line-clamp-2">${p.description}</p>` : ''}
+            
             <div class="flex items-center justify-between text-xs text-ink-400">
               <span><i class="${PLATFORM_ICON[p.platform] || 'fas fa-link'} mr-1"></i>${p.platform}</span>
-              ${p.topic_title ? `<a href="/topics/${p.topic_id}" class="text-accent-500 hover:underline" onclick="event.stopPropagation()">→ тема</a>` : ''}
+              <div class="flex items-center gap-2">
+                ${p.topic_title ? `<a href="/topics/${p.topic_id}" class="text-accent-500 hover:underline" onclick="event.stopPropagation()">→ тема</a>` : ''}
+                ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `<button onclick="event.preventDefault(); event.stopPropagation(); deletePublication(${p.id})" class="text-ink-300 hover:text-red-500 transition" title="Удалить"><i class="fas fa-trash text-xs"></i></button>` : ''}
+              </div>
             </div>
           </div>
         </a>`).join('')}
@@ -111,6 +115,19 @@ async function addPublicationModal() {
       renderMedia()
     } catch (err) {
       toast('Ошибка: ' + (err.response?.data?.error || err.message), 'error')
+    }
+  })
+
+}
+
+function deletePublication(id) {
+  confirmDelete('Публикация будет удалена.', async () => {
+    try {
+      await del(`/publications/${id}`)
+      toast('Публикация удалена')
+      renderMedia()
+    } catch (err) {
+      toast('Ошибка удаления', 'error')
     }
   })
 }
