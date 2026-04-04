@@ -51,7 +51,7 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
   <meta name="description" content="DV Hub — платформа для организации и проведения дискуссионных вечеров. Материалы, темы, комнаты, видеозвонки.">
   <title>${title} · Дискуссионные Вечера</title>
 
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <script>
