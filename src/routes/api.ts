@@ -1,3 +1,4 @@
+
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { getCookie } from 'hono/cookie'
@@ -23,6 +24,17 @@ api.get('/dashboard', async (c) => {
 })
 
 // ── MATERIALS ──────────────────────────────────────────────
+api.get('/materials', async (c) => {
+  const status = c.req.query('status') || ''
+  const q = status
+    ? `SELECT m.*, u.name as author_name, t.title as topic_title FROM materials m LEFT JOIN users u ON m.author_id = u.id LEFT JOIN topics t ON m.topic_id = t.id WHERE m.status = ? ORDER BY m.created_at DESC`
+    : `SELECT m.*, u.name as author_name, t.title as topic_title FROM materials m LEFT JOIN users u ON m.author_id = u.id LEFT JOIN topics t ON m.topic_id = t.id ORDER BY m.created_at DESC`
+  const result = status
+    ? await c.env.DB.prepare(q).bind(status).all()
+    : await c.env.DB.prepare(q).all()
+  return c.json(result.results)
+})
+
 api.post('/materials', async (c) => {
   const body = await c.req.json()
   const { title, url, content, description, type = 'link', tags = [], author_id, topic_id } = body
@@ -30,16 +42,6 @@ api.post('/materials', async (c) => {
   const result = await c.env.DB.prepare(
     `INSERT INTO materials (title, url, content, description, type, tags, author_id, topic_id, status) VALUES (?,?,?,?,?,?,?,?,?)`
   ).bind(title, url || null, content || null, description || null, type, JSON.stringify(tags), author_id || null, topic_id || null, status).run()
-  return c.json({ id: result.meta.last_row_id, ...body }, 201)
-})
-
-api.post('/materials', async (c) => {
-  const body = await c.req.json()
-  const { title, url, content, description, type = 'link', tags = [], author_id = 1, topic_id  } = body
-  const status = topic_id ? 'linked' : 'raw'
-  const result = await c.env.DB.prepare(
-    `INSERT INTO materials (title, url, content, description, type, tags, author_id, topic_id, status) VALUES (?,?,?,?,?,?,?,?,?)`
-  ).bind(title, url || null, content || null, description || null, type, JSON.stringify(tags), author_id, topic_id || null, status).run()
   return c.json({ id: result.meta.last_row_id, ...body }, 201)
 })
 
@@ -59,14 +61,21 @@ api.delete('/materials/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+api.delete('/materials/:id/permanent', async (c) => {
+  await c.env.DB.prepare(`DELETE FROM materials WHERE id = ?`).bind(c.req.param('id')).run()
+  return c.json({ ok: true })
+})
+
 // ── TOPICS ──────────────────────────────────────────────────
-api.post('/topics', async (c) => {
-  const body = await c.req.json()
-  const { title, question, thesis, antithesis, priority = 'medium', tags = [], owner_id, is_public = 0 } = body
-  const result = await c.env.DB.prepare(
-    `INSERT INTO topics (title, question, thesis, antithesis, priority, tags, owner_id, is_public) VALUES (?,?,?,?,?,?,?,?)`
-  ).bind(title, question || null, thesis || null, antithesis || null, priority, JSON.stringify(tags), owner_id || null, is_public).run()
-  return c.json({ id: result.meta.last_row_id, ...body }, 201)
+api.get('/topics', async (c) => {
+  const status = c.req.query('status') || ''
+  const q = status
+    ? `SELECT t.*, u.name as owner_name, COUNT(DISTINCT m.id) as material_count, COUNT(DISTINCT r.id) as room_count FROM topics t LEFT JOIN users u ON t.owner_id = u.id LEFT JOIN materials m ON m.topic_id = t.id LEFT JOIN discussion_rooms r ON r.topic_id = t.id WHERE t.status = ? GROUP BY t.id ORDER BY t.priority DESC, t.updated_at DESC`
+    : `SELECT t.*, u.name as owner_name, COUNT(DISTINCT m.id) as material_count, COUNT(DISTINCT r.id) as room_count FROM topics t LEFT JOIN users u ON t.owner_id = u.id LEFT JOIN materials m ON m.topic_id = t.id LEFT JOIN discussion_rooms r ON r.topic_id = t.id GROUP BY t.id ORDER BY t.priority DESC, t.updated_at DESC`
+  const result = status
+    ? await c.env.DB.prepare(q).bind(status).all()
+    : await c.env.DB.prepare(q).all()
+  return c.json(result.results)
 })
 
 api.get('/topics/:id', async (c) => {
@@ -83,10 +92,10 @@ api.get('/topics/:id', async (c) => {
 
 api.post('/topics', async (c) => {
   const body = await c.req.json()
-  const { title, question, thesis, antithesis, priority = 'medium', tags = [], owner_id = 1, is_public = 0 } = body
+  const { title, question, thesis, antithesis, priority = 'medium', tags = [], owner_id, is_public = 0 } = body
   const result = await c.env.DB.prepare(
     `INSERT INTO topics (title, question, thesis, antithesis, priority, tags, owner_id, is_public) VALUES (?,?,?,?,?,?,?,?)`
-  ).bind(title, question || null, thesis || null, antithesis || null, priority, JSON.stringify(tags), owner_id, is_public).run()
+  ).bind(title, question || null, thesis || null, antithesis || null, priority, JSON.stringify(tags), owner_id || null, is_public).run()
   return c.json({ id: result.meta.last_row_id, ...body }, 201)
 })
 
@@ -101,14 +110,29 @@ api.patch('/topics/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+api.delete('/topics/:id', async (c) => {
+  const id = c.req.param('id')
+  await c.env.DB.prepare(`UPDATE materials SET topic_id = NULL, status = 'raw' WHERE topic_id = ?`).bind(id).run()
+  const rooms = await c.env.DB.prepare(`SELECT id FROM discussion_rooms WHERE topic_id = ?`).bind(id).all()
+  for (const r of rooms.results) {
+    await c.env.DB.prepare(`DELETE FROM messages WHERE room_id = ?`).bind(r.id).run()
+  }
+  await c.env.DB.prepare(`DELETE FROM discussion_rooms WHERE topic_id = ?`).bind(id).run()
+  await c.env.DB.prepare(`DELETE FROM publications WHERE topic_id = ?`).bind(id).run()
+  await c.env.DB.prepare(`DELETE FROM topics WHERE id = ?`).bind(id).run()
+  return c.json({ ok: true })
+})
+
 // ── DISCUSSION ROOMS ─────────────────────────────────────────
-api.post('/rooms', async (c) => {
-  const body = await c.req.json()
-  const { topic_id, title, description, scheduled_at, is_public = 0, created_by } = body
-  const result = await c.env.DB.prepare(
-    `INSERT INTO discussion_rooms (topic_id, title, description, scheduled_at, is_public, created_by) VALUES (?,?,?,?,?,?)`
-  ).bind(topic_id || null, title, description || null, scheduled_at || null, is_public, created_by || null).run()
-  return c.json({ id: result.meta.last_row_id, ...body }, 201)
+api.get('/rooms', async (c) => {
+  const status = c.req.query('status') || ''
+  const q = status
+    ? `SELECT r.*, t.title as topic_title FROM discussion_rooms r LEFT JOIN topics t ON r.topic_id = t.id WHERE r.status = ? ORDER BY r.scheduled_at DESC`
+    : `SELECT r.*, t.title as topic_title FROM discussion_rooms r LEFT JOIN topics t ON r.topic_id = t.id ORDER BY r.scheduled_at DESC`
+  const result = status
+    ? await c.env.DB.prepare(q).bind(status).all()
+    : await c.env.DB.prepare(q).all()
+  return c.json(result.results)
 })
 
 api.get('/rooms/:id', async (c) => {
@@ -124,10 +148,10 @@ api.get('/rooms/:id', async (c) => {
 
 api.post('/rooms', async (c) => {
   const body = await c.req.json()
-  const { topic_id, title, description, scheduled_at, is_public = 0, created_by = 1 } = body
+  const { topic_id, title, description, scheduled_at, is_public = 0, created_by } = body
   const result = await c.env.DB.prepare(
     `INSERT INTO discussion_rooms (topic_id, title, description, scheduled_at, is_public, created_by) VALUES (?,?,?,?,?,?)`
-  ).bind(topic_id || null, title, description || null, scheduled_at || null, is_public, created_by).run()
+  ).bind(topic_id || null, title, description || null, scheduled_at || null, is_public, created_by || null).run()
   return c.json({ id: result.meta.last_row_id, ...body }, 201)
 })
 
@@ -142,6 +166,14 @@ api.patch('/rooms/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+api.delete('/rooms/:id', async (c) => {
+  const id = c.req.param('id')
+  await c.env.DB.prepare(`DELETE FROM messages WHERE room_id = ?`).bind(id).run()
+  await c.env.DB.prepare(`DELETE FROM publications WHERE room_id = ?`).bind(id).run()
+  await c.env.DB.prepare(`DELETE FROM discussion_rooms WHERE id = ?`).bind(id).run()
+  return c.json({ ok: true })
+})
+
 // ── PUBLICATIONS ─────────────────────────────────────────────
 api.get('/publications', async (c) => {
   const result = await c.env.DB.prepare(
@@ -153,7 +185,6 @@ api.get('/publications', async (c) => {
 api.post('/publications', async (c) => {
   const body = await c.req.json()
   const { title, url, platform = 'other', type = 'video', description, topic_id, room_id, published_at } = body
-  // Попробуем вытащить YouTube thumbnail
   let thumbnail_url = null
   if (platform === 'youtube' && url) {
     const match = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
@@ -163,6 +194,11 @@ api.post('/publications', async (c) => {
     `INSERT INTO publications (title, url, platform, type, description, thumbnail_url, topic_id, room_id, published_at) VALUES (?,?,?,?,?,?,?,?,?)`
   ).bind(title, url, platform, type, description || null, thumbnail_url, topic_id || null, room_id || null, published_at || null).run()
   return c.json({ id: result.meta.last_row_id, ...body, thumbnail_url }, 201)
+})
+
+api.delete('/publications/:id', async (c) => {
+  await c.env.DB.prepare(`DELETE FROM publications WHERE id = ?`).bind(c.req.param('id')).run()
+  return c.json({ ok: true })
 })
 
 // ── PUBLIC IDEA SUBMISSION ────────────────────────────────────
@@ -183,8 +219,7 @@ api.get('/users', async (c) => {
   return c.json(result.results)
 })
 
-// ── ADMIN: управление пользователями ──────────────────────────
-
+// ── ADMIN ─────────────────────────────────────────────────────
 api.get('/admin/users', async (c) => {
   const result = await c.env.DB.prepare(
     `SELECT id, name, telegram_id, email, avatar_url, role, cell_id, created_at, last_seen FROM users ORDER BY created_at ASC`
@@ -258,40 +293,6 @@ api.post('/rooms/:id/messages', async (c) => {
     `INSERT INTO messages (room_id, user_id, text) VALUES (?, ?, ?)`
   ).bind(roomId, user_id || null, text.trim()).run()
   return c.json({ id: result.meta.last_row_id }, 201)
-})
-
-// ── DELETE endpoints (admin/moderator) ────────────────────────
-api.delete('/topics/:id', async (c) => {
-  const id = c.req.param('id')
-  // Отвязываем материалы от темы
-  await c.env.DB.prepare(`UPDATE materials SET topic_id = NULL, status = 'raw' WHERE topic_id = ?`).bind(id).run()
-  // Удаляем связанные комнаты, сообщения, публикации
-  const rooms = await c.env.DB.prepare(`SELECT id FROM discussion_rooms WHERE topic_id = ?`).bind(id).all()
-  for (const r of rooms.results) {
-    await c.env.DB.prepare(`DELETE FROM messages WHERE room_id = ?`).bind(r.id).run()
-  }
-  await c.env.DB.prepare(`DELETE FROM discussion_rooms WHERE topic_id = ?`).bind(id).run()
-  await c.env.DB.prepare(`DELETE FROM publications WHERE topic_id = ?`).bind(id).run()
-  await c.env.DB.prepare(`DELETE FROM topics WHERE id = ?`).bind(id).run()
-  return c.json({ ok: true })
-})
-
-api.delete('/rooms/:id', async (c) => {
-  const id = c.req.param('id')
-  await c.env.DB.prepare(`DELETE FROM messages WHERE room_id = ?`).bind(id).run()
-  await c.env.DB.prepare(`DELETE FROM publications WHERE room_id = ?`).bind(id).run()
-  await c.env.DB.prepare(`DELETE FROM discussion_rooms WHERE id = ?`).bind(id).run()
-  return c.json({ ok: true })
-})
-
-api.delete('/publications/:id', async (c) => {
-  await c.env.DB.prepare(`DELETE FROM publications WHERE id = ?`).bind(c.req.param('id')).run()
-  return c.json({ ok: true })
-})
-
-api.delete('/materials/:id/permanent', async (c) => {
-  await c.env.DB.prepare(`DELETE FROM materials WHERE id = ?`).bind(c.req.param('id')).run()
-  return c.json({ ok: true })
 })
 
 export default api
