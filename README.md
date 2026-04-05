@@ -1,145 +1,117 @@
+
 # DV Hub — Дискуссионные Вечера
-## Research & Discussion Hub · MVP v0.1
+
+Платформа для организации интеллектуальных дискуссий: от сбора материалов до синтеза результатов.
+
+**Стек:** Hono + TypeScript · Cloudflare Workers/Pages · D1 (SQLite) · Vanilla JS + Tailwind CSS
+
+**Продакшен:** [dv-hub.pages.dev](https://dv-hub.pages.dev)
 
 ---
 
 ## Что это
 
-Рабочая платформа для распределённой команды, занимающейся исследованием тем, подготовкой дискуссий и публикацией результатов.
+Операционная система для распределённой команды, которая исследует темы, проводит дискуссии и публикует результаты. Не лендинг. Рабочий инструмент.
 
-**Не лендинг. Операционная система ячейки.**
+Цикл работы: **материал → тема → дискуссия → синтез → публикация**.
 
 ---
 
-## Функциональность MVP
+## Возможности
 
-### Реализовано
-- **Дашборд** — живой главный экран: активные темы, новые материалы, ближайшие дискуссии, последние публикации + форма подачи идей без логина
-- **Инбокс материалов** — добавление ссылок, заметок, идей, видео; теги, статусы (сырой → на разбор → в теме → архив); фильтрация
-- **Доска тем** — kanban по статусам + список view; тезис/антитезис/синтез; фильтрация по приоритету и статусу; детальная страница темы
-- **Комнаты дискуссий** — создание комнат из темы или отдельно; участники, заметки, тезис/антитезис/синтез, смена статуса
-- **Медиараздел** — YouTube превью (автоматически), Spotify, Telegram и другие платформы; привязка к темам и дискуссиям
-- **Публичный режим** — форма отправки идей без регистрации на главной странице
+**Дашборд** — живая сводка: активные темы, свежие материалы, ближайшие дискуссии, последние публикации. Форма подачи идей без регистрации.
 
-### Не реализовано (следующий этап)
-- Telegram Login Widget (требует домена + бота)
-- Magic link через email
-- Полноценные роли и права доступа
-- Экспорт данных (JSON/CSV)
-- Realtime-уведомления
-- Поиск по всем сущностям
+**Инбокс материалов** — ссылки, заметки, видео, статьи, PDF. Статусы (сырой → на разбор → в теме → архив), теги, фильтрация, привязка к темам.
+
+**Доска тем** — kanban-представление по стадиям. Тезис, антитезис, синтез. Фильтрация по приоритету и статусу. Детальная страница с привязанными материалами, комнатами и публикациями.
+
+**Комнаты дискуссий** — создание из темы или отдельно. Дата и время, участники, Jitsi-видеозвонок прямо на странице, чат с поддержкой @упоминаний и #тем, заметки, задачи, смена статуса.
+
+**Чат** — линейная лента сообщений внутри комнаты. Markdown, упоминания участников, ссылки на темы.
+
+**Медиа** — YouTube (автопревью), Spotify, Telegram, подкасты. Привязка к темам.
+
+**Авторизация** — вход через Telegram Login Widget и email magic-link. Гостевой доступ с ограниченными правами.
+
+**Роли** — admin, moderator, researcher, expert, guest, public. Управление через админку.
+
+**Поиск** — полнотекстовый по материалам, темам, комнатам и публикациям. Поиск по тегам.
+
+**FAQ** — встроенная страница для новых участников.
 
 ---
 
 ## Архитектура
 
-**Стек:** Hono + TypeScript → Cloudflare Workers/Pages  
-**База данных:** Cloudflare D1 (SQLite, global edge)  
-**Фронтенд:** SPA на vanilla JS + Tailwind CSS CDN  
+public/ ├── static/ │ ├── app.js # Загрузчик модулей │ └── modules/ │ ├── utils.js # Хелперы, API-обёртки, константы │ ├── auth.js # Авторизация, сессии │ ├── search.js # Поиск │ ├── dashboard.js # Дашборд │ ├── materials.js # Материалы │ ├── topics.js # Темы │ ├── rooms.js # Комнаты + Jitsi + чат │ ├── media.js # Медиа/публикации │ ├── admin.js # Админка │ ├── profile.js # Профиль │ ├── faq.js # FAQ │ └── router.js # SPA-роутер src/ ├── index.tsx # Hono app, HTML shell, OG-теги ├── routes/ │ └── api.ts # REST API endpoints └── lib/ └── auth.ts # Telegram verify, magic-link, сессии, middleware migrations/ └── 0001_initial_schema.sql # Схема D1 seed.sql # Тестовые данные wrangler.jsonc # Cloudflare конфиг
 
-### Сущности
 
-| Сущность | Описание |
-|----------|----------|
-| `cells` | Ячейки (сейчас одна, архитектурно готово к сети) |
-| `users` | Пользователи, роли: admin/moderator/researcher/expert/guest/public |
-| `materials` | Сырьё: ссылки, идеи, видео, статьи, заметки, PDF, голосовые |
-| `topics` | Темы: вопрос → тезис → антитезис → синтез |
-| `discussion_rooms` | Комнаты: подготовка + след обсуждения |
-| `publications` | Медиа: YouTube, Spotify, Telegram, подкасты |
-| `sessions` | Сессии аутентификации |
-
-### Статусы материалов
-`raw → review → linked → archive`
-
-### Статусы тем
-`proposed → ripening → scheduled → in_discussion → synthesized → published → archive`
-
-### Статусы комнат
-`preparing → active → completed → cancelled`
 
 ---
 
-## API Endpoints
+## Сущности
+
+| Таблица | Назначение |
+|---------|------------|
+| `cells` | Ячейки (мультитенант-архитектура) |
+| `users` | Участники и роли |
+| `materials` | Входящие материалы |
+| `topics` | Темы дискуссий |
+| `discussion_rooms` | Комнаты |
+| `messages` | Чат комнат |
+| `publications` | Медиа-публикации |
+| `sessions` | Авторизационные сессии |
+
+---
+
+## API
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| GET | `/api/dashboard` | Дашборд: топ-5 по каждой сущности |
-| GET/POST | `/api/materials` | Материалы |
-| PATCH/DELETE | `/api/materials/:id` | Обновление/архивация |
-| GET/POST | `/api/topics` | Темы |
-| GET/PATCH | `/api/topics/:id` | Детальная страница темы |
-| GET/POST | `/api/rooms` | Комнаты дискуссий |
-| GET/PATCH | `/api/rooms/:id` | Детальная страница комнаты |
-| GET/POST | `/api/publications` | Публикации |
-| POST | `/api/submit-idea` | Анонимная отправка идеи |
-| GET | `/api/users` | Список участников |
+| GET | `/api/dashboard` | Сводка |
+| GET / POST | `/api/materials` | Список / создание материала |
+| PATCH | `/api/materials/:id` | Обновление |
+| DELETE | `/api/materials/:id/permanent` | Удаление |
+| GET / POST | `/api/topics` | Список / создание темы |
+| GET / PATCH | `/api/topics/:id` | Детали / обновление |
+| DELETE | `/api/topics/:id` | Удаление (каскадное) |
+| GET / POST | `/api/rooms` | Список / создание комнаты |
+| GET / PATCH | `/api/rooms/:id` | Детали / обновление |
+| DELETE | `/api/rooms/:id` | Удаление |
+| GET / POST | `/api/rooms/:id/messages` | Чат комнаты |
+| GET / POST | `/api/publications` | Медиа |
+| DELETE | `/api/publications/:id` | Удаление |
+| POST | `/api/submit-idea` | Анонимная идея |
+| GET | `/api/users` | Участники |
+| POST | `/auth/telegram` | Вход через Telegram |
+| POST | `/auth/email` | Magic-link |
+| GET | `/auth/me` | Текущий пользователь |
+| POST | `/auth/logout` | Выход |
 
 ---
 
-## Структура
-
-```
-webapp/
-├── src/
-│   ├── index.tsx          # Hono app, HTML shell, роутинг
-│   └── routes/
-│       └── api.ts         # Все API endpoints
-├── public/
-│   └── static/
-│       └── app.js         # SPA фронтенд (~1600 строк)
-├── migrations/
-│   └── 0001_initial_schema.sql
-├── seed.sql               # Тестовые данные
-├── wrangler.jsonc         # Cloudflare конфиг
-├── ecosystem.config.cjs   # PM2 конфиг
-└── package.json
-```
-
----
-
-## Запуск (sandbox/dev)
+## Запуск локально
 
 ```bash
-# 1. Применить миграции
+npm install
 npm run db:migrate:local
-
-# 2. Загрузить тестовые данные
 npm run db:seed
-
-# 3. Сборка
 npm run build
-
-# 4. Запуск через PM2
 pm2 start ecosystem.config.cjs
-```
 
-## Сброс базы данных
-```bash
-npm run db:reset  # удаляет локальную БД, применяет миграции, загружает seed
-```
+Сброс базы: npm run db:reset
 
----
+Деплой на Cloudflare
 
-## Деплой на Cloudflare Pages
-
-```bash
-# Требуется: настроенный wrangler + созданная D1 база
 npx wrangler d1 create dv-hub-production
-# Вставить database_id в wrangler.jsonc
+# → вставить database_id в wrangler.jsonc
+
 npx wrangler d1 migrations apply dv-hub-production
 npm run deploy
-```
 
----
+Переменные окружения (Cloudflare Dashboard → Settings → Environment variables): TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, RESEND_API_KEY
 
-## Принцип переносимости
+Лицензия
+AGPL-3.0 — свободное использование, модификация и распространение при условии, что производные работы (включая сетевые сервисы) остаются открытыми под той же лицензией.
 
-- API-first: весь бэкенд отвечает JSON
-- D1 SQLite: стандартный SQL, легко мигрировать
-- Markdown-friendly поля: notes, synthesis, thesis — plaintext
-- Без vendor lock-in на уровне логики
-
----
-
-*DV Hub · 2026 · v0.1 MVP*
+DV Hub · 2026
