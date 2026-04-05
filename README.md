@@ -43,9 +43,35 @@
 
 ## Архитектура
 
-public/ ├── static/ │ ├── app.js # Загрузчик модулей │ └── modules/ │ ├── utils.js # Хелперы, API-обёртки, константы │ ├── auth.js # Авторизация, сессии │ ├── search.js # Поиск │ ├── dashboard.js # Дашборд │ ├── materials.js # Материалы │ ├── topics.js # Темы │ ├── rooms.js # Комнаты + Jitsi + чат │ ├── media.js # Медиа/публикации │ ├── admin.js # Админка │ ├── profile.js # Профиль │ ├── faq.js # FAQ │ └── router.js # SPA-роутер src/ ├── index.tsx # Hono app, HTML shell, OG-теги ├── routes/ │ └── api.ts # REST API endpoints └── lib/ └── auth.ts # Telegram verify, magic-link, сессии, middleware migrations/ └── 0001_initial_schema.sql # Схема D1 seed.sql # Тестовые данные wrangler.jsonc # Cloudflare конфиг
+    public/
+    └── static/
+        ├── app.js                        # Загрузчик модулей
+        └── modules/
+            ├── utils.js                  # Хелперы, API-обёртки, константы
+            ├── auth.js                   # Авторизация, сессии
+            ├── search.js                 # Поиск
+            ├── dashboard.js              # Дашборд
+            ├── materials.js              # Материалы
+            ├── topics.js                 # Темы
+            ├── rooms.js                  # Комнаты + Jitsi + чат
+            ├── media.js                  # Медиа/публикации
+            ├── admin.js                  # Админка
+            ├── profile.js                # Профиль
+            ├── faq.js                    # FAQ
+            └── router.js                 # SPA-роутер
 
+    src/
+    ├── index.tsx                         # Hono app, HTML shell, OG-теги
+    ├── routes/
+    │   └── api.ts                        # REST API endpoints
+    └── lib/
+        └── auth.ts                       # Telegram verify, magic-link, сессии
 
+    migrations/
+    └── 0001_initial_schema.sql           # Схема D1
+
+    seed.sql                              # Тестовые данные
+    wrangler.jsonc                        # Cloudflare конфиг
 
 ---
 
@@ -97,21 +123,23 @@ npm install
 npm run db:migrate:local
 npm run db:seed
 npm run build
-pm2 start ecosystem.config.cjs
+pm2 start ecosystem.config.cjs````
 
-Сброс базы: npm run db:reset
+Сброс базы: `npm run db:reset``
 
+---
 Деплой на Cloudflare
-
+```
+```bash
 npx wrangler d1 create dv-hub-production
 # → вставить database_id в wrangler.jsonc
 
 npx wrangler d1 migrations apply dv-hub-production
-npm run deploy
+npm run deploy````
 
 Переменные окружения (Cloudflare Dashboard → Settings → Environment variables): TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, RESEND_API_KEY
 
 Лицензия
 AGPL-3.0 — свободное использование, модификация и распространение при условии, что производные работы (включая сетевые сервисы) остаются открытыми под той же лицензией.
-
+---
 DV Hub · 2026
