@@ -1,0 +1,26 @@
+name = "dv-hub"
+account_id = "YOUR_ACCOUNT_ID"
+workers_dev = true
+
+# KV Namespace Bindings
+# kv_namespaces = [
+#   { binding = "KV_STORE", id = "YOUR_KV_NAMESPACE_ID" }
+# ]
+
+# D1 Database Bindings - create with:
+# npx wrangler d1 create dv-hub-production
+# then copy the database_id here
+d1_databases = [
+  { binding = "DB", database_name = "dv-hub-production", database_id = "YOUR_D1_DATABASE_ID" }
+]
+
+# Environment Variables (set in Cloudflare Dashboard > Settings > Environment variables)
+# TELEGRAM_BOT_TOKEN
+# TELEGRAM_BOT_USERNAME
+# USESEND_API_KEY
+# USESEND_BASE_URL
+# USESEND_FROM_EMAIL
+
+# Compatibility Flags
+[compatibility_flags]
+nodejs_compat = true

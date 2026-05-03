@@ -7,41 +7,33 @@
 //   GET  /auth/verify-email – проверка токена из письма
 //   POST /auth/logout       – выход (удаление сессии)
 
-import { Hono } from 'hono';
-import { getCookie, deleteCookie } from 'hono/cookie';
+import { Hono } from "hono";
+import { getCookie, deleteCookie } from "hono/cookie";
 import {
   verifyTelegramLogin,
   createSession,
   findOrCreateUser,
   sendMagicLink,
-} from '../lib/auth';
-
-type Env = {
-  Bindings: {
-    DB: D1Database;
-    TELEGRAM_BOT_TOKEN: string;
-    TELEGRAM_BOT_USERNAME: string;
-    USESEND_API_KEY: string;
-    USESEND_BASE_URL: string;
-    USESEND_FROM_EMAIL: string;
-  };
-};
+  type Env,
+} from "../lib/auth";
 
 const auth = new Hono<Env>();
 
 // ── Кто я? ────────────────────────────────────────
-auth.get('/me', async (c) => {
-  const sessionId = getCookie(c, 'session');
+auth.get("/me", async (c) => {
+  const sessionId = getCookie(c, "session");
   if (!sessionId) return c.json({ user: null });
 
   const session = await c.env.DB.prepare(
     `SELECT u.id, u.name, u.role, u.telegram_id, u.email, u.avatar_url
      FROM sessions s JOIN users u ON s.user_id = u.id
-     WHERE s.id = ? AND s.expires_at > datetime('now')`
-  ).bind(sessionId).first();
+     WHERE s.id = ? AND s.expires_at > datetime('now')`,
+  )
+    .bind(sessionId)
+    .first();
 
   if (!session) {
-    deleteCookie(c, 'session', { path: '/' });
+    deleteCookie(c, "session", { path: "/" });
     return c.json({ user: null });
   }
 
@@ -49,7 +41,7 @@ auth.get('/me', async (c) => {
 });
 
 // ── Telegram Login ────────────────────────────────
-auth.post('/telegram', async (c) => {
+auth.post("/telegram", async (c) => {
   const body = await c.req.json();
   const botToken = c.env.TELEGRAM_BOT_TOKEN;
 
@@ -57,21 +49,23 @@ auth.post('/telegram', async (c) => {
   const authDate = parseInt(body.auth_date);
   if (Date.now() / 1000 - authDate > 300) {
     return c.json(
-      { error: { code: 400, message: 'Данные устарели, попробуйте ещё раз' } },
-      400
+      { error: { code: 400, message: "Данные устарели, попробуйте ещё раз" } },
+      400,
     );
   }
 
   const valid = await verifyTelegramLogin(body, botToken);
   if (!valid) {
     return c.json(
-      { error: { code: 400, message: 'Невалидная подпись Telegram' } },
-      400
+      { error: { code: 400, message: "Невалидная подпись Telegram" } },
+      400,
     );
   }
 
   // Поиск/создание пользователя
-  const name = [body.first_name, body.last_name].filter(Boolean).join(' ') || 'Telegram User';
+  const name =
+    [body.first_name, body.last_name].filter(Boolean).join(" ") ||
+    "Telegram User";
   const user = await findOrCreateUser(c.env.DB, {
     telegram_id: String(body.id),
     name,
@@ -80,18 +74,21 @@ auth.post('/telegram', async (c) => {
 
   await createSession(c, user.id);
 
-  return c.json({ ok: true, user: { id: user.id, name: user.name, role: user.role } });
+  return c.json({
+    ok: true,
+    user: { id: user.id, name: user.name, role: user.role },
+  });
 });
 
 // ── Email: запрос magic‑link ───────────────────────────
-auth.post('/email', async (c) => {
+auth.post("/email", async (c) => {
   const { email } = await c.req.json();
 
   // Базовая валидация e‑mail
-  if (!email || !email.includes('@')) {
+  if (!email || !email.includes("@")) {
     return c.json(
-      { error: { code: 400, message: 'Введите корректный email' } },
-      400
+      { error: { code: 400, message: "Введите корректный email" } },
+      400,
     );
   }
 
@@ -99,8 +96,10 @@ auth.post('/email', async (c) => {
   const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 минут
   await c.env.DB.prepare(
-    `INSERT INTO email_tokens (token, email, expires_at) VALUES (?, ?, ?)`
-  ).bind(token, email.toLowerCase().trim(), expiresAt.toISOString()).run();
+    `INSERT INTO email_tokens (token, email, expires_at) VALUES (?, ?, ?)`,
+  )
+    .bind(token, email.toLowerCase().trim(), expiresAt.toISOString())
+    .run();
 
   // Базовый URL для письма
   const url = new URL(c.req.url);
@@ -113,53 +112,64 @@ auth.post('/email', async (c) => {
     c.env.USESEND_API_KEY,
     c.env.USESEND_BASE_URL,
     c.env.USESEND_FROM_EMAIL,
-    baseUrl
+    baseUrl,
   );
 
   // Если отправка провалилась – возвращаем ошибку 500
   if (!result.success) {
     return c.json(
-      { error: { code: 500, message: result.error ?? 'Не удалось отправить письмо' } },
-      500
+      {
+        error: {
+          code: 500,
+          message: result.error ?? "Не удалось отправить письмо",
+        },
+      },
+      500,
     );
   }
 
   // В случае успеха – сообщение пользователю
-  return c.json({ ok: true, message: 'Письмо отправлено. Проверьте почту.' });
+  return c.json({ ok: true, message: "Письмо отправлено. Проверьте почту." });
 });
 
 // ── Email: проверка magic‑link ───────────────────────
-auth.get('/verify-email', async (c) => {
-  const token = c.req.query('token');
-  if (!token) return c.redirect('/?auth_error=missing_token');
+auth.get("/verify-email", async (c) => {
+  const token = c.req.query("token");
+  if (!token) return c.redirect("/?auth_error=missing_token");
 
   // Поиск неиспользованного токена, пока не истёк
   const record = await c.env.DB.prepare(
-    `SELECT * FROM email_tokens WHERE token = ? AND used = 0 AND expires_at > datetime('now')`
-  ).bind(token).first();
+    `SELECT * FROM email_tokens WHERE token = ? AND used = 0 AND expires_at > datetime('now')`,
+  )
+    .bind(token)
+    .first();
 
-  if (!record) return c.redirect('/?auth_error=invalid_token');
+  if (!record) return c.redirect("/?auth_error=invalid_token");
 
   // Помечаем токен как использованный
-  await c.env.DB.prepare(`UPDATE email_tokens SET used = 1 WHERE token = ?`).bind(token).run();
+  await c.env.DB.prepare(`UPDATE email_tokens SET used = 1 WHERE token = ?`)
+    .bind(token)
+    .run();
 
   // Поиск/создание пользователя по e‑mail
   const email = record.email as string;
   const user = await findOrCreateUser(c.env.DB, {
     email,
-    name: email.split('@')[0], // имя берём из части перед @
+    name: email.split("@")[0], // имя берём из части перед @
   });
 
   await createSession(c, user.id);
-  return c.redirect('/?auth_success=1');
+  return c.redirect("/?auth_success=1");
 });
 
 // ── Выход ───────────────────────────────────────
-auth.post('/logout', async (c) => {
-  const sessionId = getCookie(c, 'session');
+auth.post("/logout", async (c) => {
+  const sessionId = getCookie(c, "session");
   if (sessionId) {
-    await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(sessionId).run();
-    deleteCookie(c, 'session', { path: '/' });
+    await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`)
+      .bind(sessionId)
+      .run();
+    deleteCookie(c, "session", { path: "/" });
   }
   return c.json({ ok: true });
 });

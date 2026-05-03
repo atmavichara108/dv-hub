@@ -1,4 +1,3 @@
-
 # DV Hub — Дискуссионные Вечера
 
 Платформа для организации интеллектуальных дискуссий: от сбора материалов до синтеза результатов.
@@ -77,60 +76,83 @@
 
 ## Сущности
 
-| Таблица | Назначение |
-|---------|------------|
-| `cells` | Ячейки (мультитенант-архитектура) |
-| `users` | Участники и роли |
-| `materials` | Входящие материалы |
-| `topics` | Темы дискуссий |
-| `discussion_rooms` | Комнаты |
-| `messages` | Чат комнат |
-| `publications` | Медиа-публикации |
-| `sessions` | Авторизационные сессии |
+| Таблица            | Назначение                        |
+| ------------------ | --------------------------------- |
+| `cells`            | Ячейки (мультитенант-архитектура) |
+| `users`            | Участники и роли                  |
+| `materials`        | Входящие материалы                |
+| `topics`           | Темы дискуссий                    |
+| `discussion_rooms` | Комнаты                           |
+| `messages`         | Чат комнат                        |
+| `publications`     | Медиа-публикации                  |
+| `sessions`         | Авторизационные сессии            |
 
 ---
 
 ## API
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/api/dashboard` | Сводка |
-| GET / POST | `/api/materials` | Список / создание материала |
-| PATCH | `/api/materials/:id` | Обновление |
-| DELETE | `/api/materials/:id/permanent` | Удаление |
-| GET / POST | `/api/topics` | Список / создание темы |
-| GET / PATCH | `/api/topics/:id` | Детали / обновление |
-| DELETE | `/api/topics/:id` | Удаление (каскадное) |
-| GET / POST | `/api/rooms` | Список / создание комнаты |
-| GET / PATCH | `/api/rooms/:id` | Детали / обновление |
-| DELETE | `/api/rooms/:id` | Удаление |
-| GET / POST | `/api/rooms/:id/messages` | Чат комнаты |
-| GET / POST | `/api/publications` | Медиа |
-| DELETE | `/api/publications/:id` | Удаление |
-| POST | `/api/submit-idea` | Анонимная идея |
-| GET | `/api/users` | Участники |
-| POST | `/auth/telegram` | Вход через Telegram |
-| POST | `/auth/email` | Magic-link |
-| GET | `/auth/me` | Текущий пользователь |
-| POST | `/auth/logout` | Выход |
+| Метод       | Путь                           | Описание                    |
+| ----------- | ------------------------------ | --------------------------- |
+| GET         | `/api/dashboard`               | Сводка                      |
+| GET / POST  | `/api/materials`               | Список / создание материала |
+| PATCH       | `/api/materials/:id`           | Обновление                  |
+| DELETE      | `/api/materials/:id/permanent` | Удаление                    |
+| GET / POST  | `/api/topics`                  | Список / создание темы      |
+| GET / PATCH | `/api/topics/:id`              | Детали / обновление         |
+| DELETE      | `/api/topics/:id`              | Удаление (каскадное)        |
+| GET / POST  | `/api/rooms`                   | Список / создание комнаты   |
+| GET / PATCH | `/api/rooms/:id`               | Детали / обновление         |
+| DELETE      | `/api/rooms/:id`               | Удаление                    |
+| GET / POST  | `/api/rooms/:id/messages`      | Чат комнаты                 |
+| GET / POST  | `/api/publications`            | Медиа                       |
+| DELETE      | `/api/publications/:id`        | Удаление                    |
+| POST        | `/api/submit-idea`             | Анонимная идея              |
+| GET         | `/api/users`                   | Участники                   |
+| POST        | `/auth/telegram`               | Вход через Telegram         |
+| POST        | `/auth/email`                  | Magic-link                  |
+| GET         | `/auth/me`                     | Текущий пользователь        |
+| POST        | `/auth/logout`                 | Выход                       |
 
 ---
 
 ## Запуск локально
 
-```bash
+``````bash
 npm install
 npm run db:migrate:local
 npm run db:seed
 npm run build
-pm2 start ecosystem.config.cjs````
+npm run dev:sandbox````
 
 Сброс базы: `npm run db:reset``
 
 ---
+
+## Тестирование
+
+`````bash
+npm run test          # Запуск Jest-тестов
+npm run lint          # Проверка кода линтером
+npm run build         # Сборка Vite
+npm run ci            # Полный CI: lint + test + build
+````
+
+Тесты находятся в каталоге `tests/`.
+
+---
+
+## CI/CD
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): автоматический запуск `npm run ci` при пуше и Pull Request.
+- **Cloudflare Pages**: автоматический деплой при пуше в `main` (настраивается в Dashboard).
+- Матрица Node.js: 20 и 22 версии.
+
+---
+
 Деплой на Cloudflare
-```
-```bash
+``````
+
+`````bash
 npx wrangler d1 create dv-hub-production
 # → вставить database_id в wrangler.jsonc
 
@@ -143,3 +165,4 @@ npm run deploy````
 AGPL-3.0 — свободное использование, модификация и распространение при условии, что производные работы (включая сетевые сервисы) остаются открытыми под той же лицензией.
 ---
 DV Hub · 2026
+`````
