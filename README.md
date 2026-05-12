@@ -1,10 +1,14 @@
 # DV Hub — Дискуссионные Вечера
 
-Платформа для организации интеллектуальных дискуссий: от сбора материалов до синтеза результатов.
+Самохостимая исследовательская платформа для интеллектуальных дискуссий: от сбора материалов до синтеза результатов.
 
-**Стек:** Hono + TypeScript · Cloudflare Workers/Pages · D1 (SQLite) · Vanilla JS + Tailwind CSS
+**Текущий продакшен:** [dv-hub.pages.dev](https://dv-hub.pages.dev) (Cloudflare Pages, миграция в процессе)
+**Целевой продакшен:** re-search.wiki (self-hosted VPS, Phase 0)
 
-**Продакшен:** [dv-hub.pages.dev](https://dv-hub.pages.dev)
+**Стек (target):** Hono + TypeScript · Node.js + PM2 · Nginx · SQLite · Vanilla JS + Tailwind
+**Стек (current):** Hono + TypeScript · Cloudflare Workers/Pages · D1 (SQLite) · Vanilla JS + Tailwind
+
+> ⚠️ Проект в активной миграции с Cloudflare на собственную инфраструктуру. См. [docs/roadmap.md](docs/roadmap.md) и [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -13,6 +17,21 @@
 Операционная система для распределённой команды, которая исследует темы, проводит дискуссии и публикует результаты. Не лендинг. Рабочий инструмент.
 
 Цикл работы: **материал → тема → дискуссия → синтез → публикация**.
+
+Подробное product vision — [docs/product-vision.md](docs/product-vision.md).
+
+---
+
+## Документация
+
+| Файл | О чём |
+|------|-------|
+| [docs/product-vision.md](docs/product-vision.md) | Что такое DV Hub, для кого, что anti-goals |
+| [docs/architecture.md](docs/architecture.md) | ADR — ключевые архитектурные решения |
+| [docs/roadmap.md](docs/roadmap.md) | Фазы развития |
+| [docs/glossary.md](docs/glossary.md) | Термины: ячейка, синтез, S3, consent |
+| [docs/infra-runbook.md](docs/infra-runbook.md) | Операционный мануал по серверу (Phase 0+) |
+| [AGENTS.md](AGENTS.md) | Конвенции для AI-агентов и контрибьюторов |
 
 ---
 
@@ -38,131 +57,155 @@
 
 **FAQ** — встроенная страница для новых участников.
 
----
-
-## Архитектура
-
-    public/
-    └── static/
-        ├── app.js                        # Загрузчик модулей
-        └── modules/
-            ├── utils.js                  # Хелперы, API-обёртки, константы
-            ├── auth.js                   # Авторизация, сессии
-            ├── search.js                 # Поиск
-            ├── dashboard.js              # Дашборд
-            ├── materials.js              # Материалы
-            ├── topics.js                 # Темы
-            ├── rooms.js                  # Комнаты + Jitsi + чат
-            ├── media.js                  # Медиа/публикации
-            ├── admin.js                  # Админка
-            ├── profile.js                # Профиль
-            ├── faq.js                    # FAQ
-            └── router.js                 # SPA-роутер
-
-    src/
-    ├── index.tsx                         # Hono app, HTML shell, OG-теги
-    ├── routes/
-    │   └── api.ts                        # REST API endpoints
-    └── lib/
-        └── auth.ts                       # Telegram verify, magic-link, сессии
-
-    migrations/
-    └── 0001_initial_schema.sql           # Схема D1
-
-    seed.sql                              # Тестовые данные
-    wrangler.jsonc                        # Cloudflare конфиг
+Заметка по комнатам: сейчас используется Jitsi (публичный), идёт миграция на self-hosted MiroTalk SFU на `meet.re-search.wiki`. См. ADR-002.
 
 ---
 
-## Сущности
+## Установка для разработки
 
-| Таблица            | Назначение                        |
-| ------------------ | --------------------------------- |
-| `cells`            | Ячейки (мультитенант-архитектура) |
-| `users`            | Участники и роли                  |
-| `materials`        | Входящие материалы                |
-| `topics`           | Темы дискуссий                    |
-| `discussion_rooms` | Комнаты                           |
-| `messages`         | Чат комнат                        |
-| `publications`     | Медиа-публикации                  |
-| `sessions`         | Авторизационные сессии            |
+### Требования
+- Node.js 20 или 22
+- npm 10+
+- git с поддержкой submodules
 
----
+### Клонирование
 
-## API
-
-| Метод       | Путь                           | Описание                    |
-| ----------- | ------------------------------ | --------------------------- |
-| GET         | `/api/dashboard`               | Сводка                      |
-| GET / POST  | `/api/materials`               | Список / создание материала |
-| PATCH       | `/api/materials/:id`           | Обновление                  |
-| DELETE      | `/api/materials/:id/permanent` | Удаление                    |
-| GET / POST  | `/api/topics`                  | Список / создание темы      |
-| GET / PATCH | `/api/topics/:id`              | Детали / обновление         |
-| DELETE      | `/api/topics/:id`              | Удаление (каскадное)        |
-| GET / POST  | `/api/rooms`                   | Список / создание комнаты   |
-| GET / PATCH | `/api/rooms/:id`               | Детали / обновление         |
-| DELETE      | `/api/rooms/:id`               | Удаление                    |
-| GET / POST  | `/api/rooms/:id/messages`      | Чат комнаты                 |
-| GET / POST  | `/api/publications`            | Медиа                       |
-| DELETE      | `/api/publications/:id`        | Удаление                    |
-| POST        | `/api/submit-idea`             | Анонимная идея              |
-| GET         | `/api/users`                   | Участники                   |
-| POST        | `/auth/telegram`               | Вход через Telegram         |
-| POST        | `/auth/email`                  | Magic-link                  |
-| GET         | `/auth/me`                     | Текущий пользователь        |
-| POST        | `/auth/logout`                 | Выход                       |
-
----
-
-## Запуск локально
-
-``````bash
+```bash
+git clone --recurse-submodules https://github.com/atmavichara108/dv-hub.git
+cd dv-hub
 npm install
+```
+
+Если уже клонировал без `--recurse-submodules`:
+```bash
+git submodule update --init --recursive
+# или
+npm run context:init
+```
+
+### Submodule `context/`
+
+`context/` — это git submodule на репо [dv-project](https://github.com/atmavichara108/dv-project) с операционным контекстом движения (vision, принципы, структура, бэклог задач). Используется AI-агентами и контрибьюторами для понимания продуктовых решений.
+
+Работа с submodule:
+```bash
+npm run context:sync     # подтянуть последние изменения из dv-project
+npm run context:bump     # зафиксировать новый sha в dv-hub
+npm run context:status   # посмотреть состояние submodule
+npm run context:log      # последние коммиты submodule
+```
+
+Подробнее о submodule см. секцию [«Submodule и его подводные камни»](#submodule-и-его-подводные-камни) ниже.
+
+### Запуск (текущий, на Cloudflare)
+
+```bash
 npm run db:migrate:local
 npm run db:seed
-npm run build
-npm run dev:sandbox````
+npm run dev:sandbox       # http://localhost:3000
+```
 
-Сброс базы: `npm run db:reset``
+Сброс БД: `npm run db:reset`.
+
+### Запуск (target, Node.js — после DV-008)
+TBD после миграции с D1.
 
 ---
 
 ## Тестирование
 
-`````bash
-npm run test          # Запуск Jest-тестов
-npm run lint          # Проверка кода линтером
-npm run build         # Сборка Vite
-npm run ci            # Полный CI: lint + test + build
-````
-
-Тесты находятся в каталоге `tests/`.
+```bash
+npm run test    # Jest
+npm run lint    # ESLint
+npm run build   # Vite
+npm run ci      # lint + test + build
+```
 
 ---
 
-## CI/CD
+## AI-агенты (opencode)
 
-- **GitHub Actions** (`.github/workflows/ci.yml`): автоматический запуск `npm run ci` при пуше и Pull Request.
-- **Cloudflare Pages**: автоматический деплой при пуше в `main` (настраивается в Dashboard).
-- Матрица Node.js: 20 и 22 версии.
+Проект настроен на работу с [opencode](https://opencode.ai). Конфиг — `opencode.json`, агенты — `.opencode/agents/`.
+
+Доступные агенты:
+- **plan** — стратег, read-only по коду, может править docs и задачи
+- **build** — исполнитель, пишет код по спекам
+- **reviewer** — код-ревью (subagent, `@reviewer`)
+- **researcher** — tech spike по внешним инструментам (`@researcher`)
+- **infra** — операции на сервере re-search.wiki
+
+Запуск: `opencode` в корне репо.
 
 ---
 
-Деплой на Cloudflare
-``````
+## Вклад в проект
 
-`````bash
-npx wrangler d1 create dv-hub-production
-# → вставить database_id в wrangler.jsonc
+Хочешь помочь? Прочитай в таком порядке:
 
-npx wrangler d1 migrations apply dv-hub-production
-npm run deploy````
+1. [docs/product-vision.md](docs/product-vision.md) — поймёшь, что мы строим и что точно не строим.
+2. [docs/architecture.md](docs/architecture.md) — что уже решено, что не обсуждается без ADR.
+3. [docs/roadmap.md](docs/roadmap.md) — где мы сейчас и куда идём.
+4. [AGENTS.md](AGENTS.md) — кодстайл и конвенции.
+5. `context/DV/Operations/Kanban/Backlog.base` (откроется в Obsidian) или просто `ls context/DV/Operations/Kanban/Tasks/` — текущий бэклог.
 
-Переменные окружения (Cloudflare Dashboard → Settings → Environment variables): TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, RESEND_API_KEY
+### Работа без opencode
 
-Лицензия
-AGPL-3.0 — свободное использование, модификация и распространение при условии, что производные работы (включая сетевые сервисы) остаются открытыми под той же лицензией.
+Конфиг агентов привязан к opencode, но **сам проект** — обычный TypeScript-репо. Можно работать с любым AI-кодером (Cursor, Claude Code, Aider, Continue.dev и т.д.) или без AI вообще.
+
+Контекст для других инструментов:
+- **Cursor**: создай `.cursorrules` со ссылками на `docs/*.md` и `AGENTS.md`. Содержание `.opencode/agents/build.md` можно скопировать как основу.
+- **Claude Code**: читает `CLAUDE.md` или `AGENTS.md` автоматически. Наш `AGENTS.md` совместим.
+- **Aider**: используй `.aider.conf.yml` и подключи docs/ как read-only context через `--read docs/architecture.md` и т.д.
+- **Без AI**: просто читай `docs/` и AGENTS.md перед PR.
+
+Ключевой принцип: **источник истины — docs/ и context/, а не конфиги AI-инструментов**. Любой контрибьютор должен получить одинаковое понимание из одних и тех же markdown-файлов.
+
+### Pull Requests
+
+- Маленькие PR, по одной теме на PR.
+- Коммиты на английском, формат `feat:`/`fix:`/`chore:`/`refactor:`/`docs:`.
+- Если меняешь архитектуру — сначала ADR в `docs/architecture.md`, обсуждение, потом код.
+- Перед PR: `npm run ci` должен пройти.
+
 ---
+
+## Submodule и его подводные камни
+
+`context/` — отдельный git-репозиторий, прицепленный к dv-hub по конкретному коммиту (SHA). Это **не папка с файлами**, а указатель.
+
+**Что это значит на практике:**
+
+1. Когда ты или агент **редактирует файл внутри `context/`**, изменения идут в репо **dv-project**, а не в dv-hub. В dv-hub нужно отдельно «зафиксировать новый указатель».
+
+2. Стандартный flow при правках в context:
+   ```bash
+   cd context
+   # отредактировал DV/Operations/Kanban/Tasks/DV-008.md
+   git add DV/Operations/Kanban/Tasks/DV-008.md
+   git commit -m "task(DV-008): уточнить definition of done"
+   git push origin main           # ← коммит ушёл в dv-project
+   cd ..
+   git add context                # ← теперь в dv-hub
+   git commit -m "chore: bump context"
+   git push origin main           # ← новый указатель в dv-hub
+   ```
+
+3. **Если забыть `git push` в dv-hub** — у тебя на машине всё ок, но у других участников и в CI submodule останется на старом sha. Они увидят прежнюю версию задачи. Через неделю все запутаются «почему у меня по-другому».
+
+4. Чтобы обнаружить рассинхрон:
+   ```bash
+   npm run context:status
+   ```
+   Если показывает `modified content` или `new commits` — submodule впереди/позади указателя в dv-hub.
+
+5. **Не редактируй файлы в `context/` если ты не уверен, что хочешь закоммитить в dv-project**. По умолчанию относись к нему как к read-only.
+
+---
+
+## Лицензия
+
+AGPL-3.0. Производные работы, включая сетевые сервисы, должны оставаться открытыми под той же лицензией.
+
+---
+
 DV Hub · 2026
-`````
