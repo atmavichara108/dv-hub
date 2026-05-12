@@ -8,6 +8,8 @@
     "dev:sandbox": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
     "deploy": "npm run build && wrangler pages deploy dist --project-name dv-hub",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "context:sync": "cd context && git pull origin main && cd .. && git add context && git commit -m \"chore: bump context\"",
+    "context:init": "git submodule update --init --recursive"
     "db:migrate:local": "wrangler d1 migrations apply dv-hub-production --local",
     "db:seed": "wrangler d1 execute dv-hub-production --local --file=./seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
