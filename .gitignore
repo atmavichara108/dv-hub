@@ -19,6 +19,9 @@ node_modules/
 .env
 .env.production
 .dev.vars
+.env.local
+.env.*.local
+.opencode/local/
 
 # logs
 logs/
