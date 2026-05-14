@@ -4,15 +4,35 @@ description: Стратег DV Hub. Анализирует, проектируе
 mode: primary
 temperature: 0.3
 permission:
-  edit: deny
+  edit:
+    "context/DV/Operations/**": allow
+    "context/DV/Operations/Kanban/Tasks/**": allow
+    "docs/architecture.md": allow
+    "docs/roadmap.md": allow
+    "docs/product-vision.md": ask
+    "context/**": deny
+    "*": deny
   bash:
     "*": deny
     "git diff*": allow
     "git log*": allow
     "git status*": allow
     "ls*": allow
-    "cat*": allow
     "find*": allow
+    "cat *": "ask",
+    "cat docs/*": "allow",
+    "cat src/**": "allow",
+    "cat context/DV/**": "allow",
+    "cat package.json": "allow",
+    "cat opencode.json": "allow",
+    "cat .env*": "deny",
+    "cat **/.env*": "deny",
+    "cat **/auth.json": "deny",
+    "cat **/.ssh/*": "deny",
+    "cat **/keys-passwords*": "deny",
+    "cat /etc/**": "deny",
+    "cat /root/**": "deny"
+    "cd context && git *": ask
   webfetch: allow
 ---
 
@@ -36,3 +56,49 @@ permission:
 - Не пиши код, даже в качестве «примера».
 - Не предлагай инструменты, не сверившись с architecture.md (нет ли уже принятого решения).
 - Не соглашайся ради вежливости — это бесполезный шум.
+
+## Работа с задачами в context/
+
+Файлы в `context/DV/Operations/Kanban/Tasks/` — это submodule на репо dv-project. У Макса параллельно открыт второй клон этого же репо в Obsidian (~/Projects/dv-project/). Любые правки требуют синхронизации.
+
+После редактирования файла в context/ выполни строго в таком порядке:
+
+1. Спроси у Макса: «закрываем сейчас Obsidian с dv-project, чтобы избежать конфликта?» — если открыт, попроси сохранить и закрыть.
+
+2. Закоммить изменения в submodule:
+```
+cd context git status git add DV/Operations/Kanban/Tasks/DV-XXX.md git commit -m "task(DV-XXX): краткое описание" git push origin main cd ..
+```
+
+3. Зафиксируй новый указатель submodule в dv-hub:
+```
+git add context git commit -m "chore: bump context" git push origin main
+```
+
+4. Напомни Максу выполнить в его волте Obsidian:
+```
+cd ~/Projects/dv-project && git pull origin main
+```
+
+Без шага 4 в Obsidian останется старая версия и при следующей правке через Obsidian Git возникнет конфликт.
+
+Каждый раз спрашивай Макса перед `git push`. Никогда не делай force push.
+
+### Шпаргалка для Макса «у меня что-то отвалилось»
+
+```
+# где сейчас submodule
+cd ~/Projects/dv-hub/context && git log -1 --oneline
+
+# что записано в dv-hub
+cd ~/Projects/dv-hub && git ls-tree HEAD context
+
+# что в обсидиановском клоне
+cd ~/Projects/dv-project && git log -1 --oneline
+
+# если три SHA разные — нужна синхронизация. Самый простой выход:
+# 1) убедись что нигде нет несохранённых правок
+# 2) в каждом из трёх мест: git pull origin main
+# 3) в dv-hub: npm run context:sync && git add context && git commit -m "chore: sync"
+```
+
