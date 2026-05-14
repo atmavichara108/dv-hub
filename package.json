@@ -1,18 +1,33 @@
+
 {
   "name": "dv-hub",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:server": "echo 'TODO DV-008: esbuild src/server.ts --bundle --platform=node --outfile=dist/server.js' && exit 1",
     "preview": "wrangler pages dev dist",
+
     "dev:sandbox": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name dv-hub",
+    "dev:node": "echo 'TODO DV-008: node dist/server.js' && exit 1",
+
+    "deploy:cf": "npm run build && wrangler pages deploy dist --project-name dv-hub",
+    "deploy:vps": "echo 'TODO DV-008: rsync dist/ + ssh pm2 restart' && exit 1",
+    "deploy": "npm run deploy:cf",
+
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "context:sync": "cd context && git pull origin main && cd .. && git add context && git commit -m \"chore: bump context\"",
+
     "context:init": "git submodule update --init --recursive",
+    "context:sync": "cd context && git pull origin main && cd ..",
+    "context:bump": "git add context && git commit -m \"chore: bump context\"",
+    "context:status": "cd context && git status && cd ..",
+    "context:log": "cd context && git log --oneline -10 && cd ..",
+
     "db:migrate:local": "wrangler d1 migrations apply dv-hub-production --local",
     "db:seed": "wrangler d1 execute dv-hub-production --local --file=./seed.sql",
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
+    "db:export": "echo 'TODO DV-007: wrangler d1 export dv-hub-production --output=./backup.sql' && exit 1",
+
     "lint": "eslint . --ext .ts",
     "test": "jest",
     "ci": "npm run lint && npm run test && npm run build",
