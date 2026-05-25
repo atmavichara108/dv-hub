@@ -19,16 +19,56 @@
     "edit": "ask",
     "bash": {
       "*": "ask",
-      "git status*": "allow",
-      "git diff*": "allow",
-      "git log*": "allow",
-      "ls*": "allow",
-      "cat*": "allow",
-      "npm run *": "allow",
-      "npx tsc*": "allow",
+      "ls *": "allow",
+      "ls": "allow",
+      "find *": "allow",
+      "cat *": "ask",
+      "cat docs/*": "allow",
+      "cat src/**": "allow",
+      "cat tests/**": "allow",
+      "cat migrations/*": "allow",
+      "cat context/DV/**": "allow",
+      "cat package.json": "allow",
+      "cat opencode.json": "allow",
+      "cat AGENTS.md": "allow",
+      "cat README.md": "allow",
+      "cat .env*": "deny",
+      "cat **/.env*": "deny",
+      "cat **/auth.json": "deny",
+      "cat **/.ssh/*": "deny",
+      "cat **/keys-passwords*": "deny",
+      "cat /etc/**": "deny",
+      "cat /root/**": "deny",
+      "git status *": "allow",
+      "git status": "allow",
+      "git diff *": "allow",
+      "git diff": "allow",
+      "git log *": "allow",
+      "git log": "allow",
+      "git branch *": "allow",
+      "git branch": "allow",
+      "npm run lint": "allow",
+      "npm run test": "allow",
+      "npm run build": "allow",
+      "npm run context:status": "allow",
+      "npm run context:log": "allow",
+      "npx tsc *": "allow",
       "rm *": "deny",
+      "rm -rf *": "deny",
       "sudo *": "deny"
     },
     "webfetch": "allow"
+  }
+},
+{
+  "mcp": {
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${env:GITHUB_TOKEN}"
+      },
+      "enabled": true
+    }
   }
 }

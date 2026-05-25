@@ -10,28 +10,31 @@ permission:
     "docs/architecture.md": allow
     "docs/roadmap.md": allow
     "docs/product-vision.md": ask
-    "context/**": deny
     "*": deny
   bash:
     "*": deny
-    "git diff*": allow
-    "git log*": allow
-    "git status*": allow
-    "ls*": allow
-    "find*": allow
-    "cat *": "ask",
-    "cat docs/*": "allow",
-    "cat src/**": "allow",
-    "cat context/DV/**": "allow",
-    "cat package.json": "allow",
-    "cat opencode.json": "allow",
-    "cat .env*": "deny",
-    "cat **/.env*": "deny",
-    "cat **/auth.json": "deny",
-    "cat **/.ssh/*": "deny",
-    "cat **/keys-passwords*": "deny",
-    "cat /etc/**": "deny",
-    "cat /root/**": "deny"
+    "ls *": allow
+    "ls": allow
+    "find *": allow
+    "git status *": allow
+    "git status": allow
+    "git diff *": allow
+    "git diff": allow
+    "git log *": allow
+    "git log": allow
+    "cat *": ask
+    "cat docs/*": allow
+    "cat src/**": allow
+    "cat context/DV/**": allow
+    "cat package.json": allow
+    "cat opencode.json": allow
+    "cat .env*": deny
+    "cat **/.env*": deny
+    "cat **/auth.json": deny
+    "cat **/.ssh/*": deny
+    "cat **/keys-passwords*": deny
+    "cat /etc/**": deny
+    "cat /root/**": deny
     "cd context && git *": ask
   webfetch: allow
 ---
