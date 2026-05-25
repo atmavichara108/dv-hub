@@ -125,7 +125,7 @@ npm run ci      # lint + test + build
 
 ## AI-агенты (opencode)
 
-Проект настроен на работу с [opencode](https://opencode.ai). Конфиг — `opencode.json`, агенты — `.opencode/agents/`.
+Проект использует [opencode](https://opencode.ai/) для AI-ассистированной разработки. Конфигурация — в `opencode.json` и `.opencode/`.
 
 Доступные агенты:
 - **plan** — стратег, read-only по коду, может править docs и задачи
@@ -136,6 +136,31 @@ npm run ci      # lint + test + build
 
 Запуск: `opencode` в корне репо.
 
+### Структура
+
+    .opencode/
+    ├─ agents/          # Определения ролей агентов
+    │  ├─ plan.md       # Стратег (архитектура, ADR, без кода)
+    │  ├─ build.md      # Исполнитель (пишет код по спеке)
+    │  ├─ reviewer.md   # Ревью кода (read-only)
+    │  ├─ researcher.md # Тех-разведка, анализ рисков
+    │  └─ infra.md      # DevOps (сервер, Nginx, PM2)
+    ├─ commands/        # Кастомные slash-команды
+    │  ├─ morning.md    # /morning — дневной статус
+    │  ├─ spec.md       # /spec <TASK-ID> — генерация спеки
+    │  ├─ review.md     # /review — проверка перед мержем
+    │  ├─ sync-context.md  # /sync-context — синк submodule
+    │  └─ hygiene.md    # /hygiene — еженедельная уборка
+    ├─ plugins/         # Lifecycle-плагины (env-guard, notify, compaction)
+    └─ package.json     # Зависимости плагинов
+
+## Постоянная память (опционально)
+Для памяти между сессиями рекомендуем claude-mem:
+
+```bash
+npx claude-mem install --ide opencode
+```
+Хранит наблюдения в локальной SQLite + Chroma vector DB, отдаёт через MCP. Полезно, когда сессии превышают окно контекста или нужно, чтобы агенты помнили решения, принятые недели назад.
 ---
 
 ## Вклад в проект
