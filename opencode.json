@@ -1,0 +1,34 @@
+
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "docs/product-vision.md",
+    "docs/architecture.md",
+    "docs/glossary.md",
+    "docs/roadmap.md",
+    "docs/infra-runbook.md",
+    "context/DV/Movement/DV Foundation.md",
+    "context/DV/Movement/Manifesto.md",
+    "context/DV/Movement/Principles.md",
+    "context/DV/Structure/**/*.md",
+    "context/DV/Site/**/*.md",
+    "context/DV/Research/Research Workflow.md",
+    "context/DV/Operations/Kanban/Kanban Board.md"
+  ],
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "ls*": "allow",
+      "cat*": "allow",
+      "npm run *": "allow",
+      "npx tsc*": "allow",
+      "rm *": "deny",
+      "sudo *": "deny"
+    },
+    "webfetch": "allow"
+  }
+}

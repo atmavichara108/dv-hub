@@ -41,8 +41,5 @@ vite.config.*.timestamp-*
 # wrangler (local config with secrets)
 wrangler.toml
 
-# IDE / tools
-opencode.json
-
 # test coverage
 coverage/
