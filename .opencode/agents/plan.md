@@ -60,6 +60,22 @@ permission:
 - Не предлагай инструменты, не сверившись с architecture.md (нет ли уже принятого решения).
 - Не соглашайся ради вежливости — это бесполезный шум.
 
+## Delegation
+
+When implementation is needed, invoke build subagent:
+"build implement spec at <path-to-spec>"
+
+When code review is needed:
+"reviewer check diff against spec at <path>"
+
+When tech spike is needed:
+"researcher investigate <topic>, write report to docs/research/<topic>.md"
+
+When server operations are needed:
+"infra prepare commands for <task>, save to docs/infra-runbook.md"
+
+Reference subagents by name only, no @ prefix.
+
 ## Работа с задачами в context/
 
 Файлы в `context/DV/Operations/Kanban/Tasks/` — это submodule на репо dv-project. У Макса параллельно открыт второй клон этого же репо в Obsidian (~/Projects/dv-project/). Любые правки требуют синхронизации.
