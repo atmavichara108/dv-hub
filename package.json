@@ -3,6 +3,7 @@
   "name": "dv-hub",
   "type": "module",
   "scripts": {
+    "task:sync": "bash scripts/sync-task.sh"
     "dev": "vite",
     "build": "vite build",
     "build:server": "echo 'TODO DV-008: esbuild src/server.ts --bundle --platform=node --outfile=dist/server.js' && exit 1",
