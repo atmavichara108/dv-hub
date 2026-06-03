@@ -20,7 +20,7 @@ DV Hub — самохостимая исследовательская плат�
 - Runtime: Node.js + PM2
 - Reverse proxy: Nginx
 - Database: SQLite (better-sqlite3 или libSQL)
-- Host: Zomro VPS, Ubuntu 22.04, Poland
+- Host: Fornex VPS, Ubuntu 24.04, Germany
 - Domain: re-search.wiki
 - Video: MiroTalk SFU на meet.re-search.wiki
 

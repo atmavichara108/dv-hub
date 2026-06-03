@@ -1,10 +1,10 @@
 
 # Architecture Decisions
 
-## ADR-001: Self-hosted infrastructure on Zomro VPS
+## ADR-001: Self-hosted infrastructure on Fornex VPS
 **Контекст**: Cloudflare заблокирован в РФ; данные дискуссий чувствительны; нужна предсказуемая стоимость.
 
-**Решение**: VPS Zomro Standard Intel (2 vCPU / 5 GB RAM / 35 GB NVMe), регион Poland, Ubuntu 22.04. Домен re-search.wiki в Namecheap. Reverse proxy — Nginx. Процесс-менеджер — PM2. SSL — Let's Encrypt через certbot (snap).
+**Решение**: VPS Fornex (2 vCPU / 4 GB RAM / 40 GB NVMe Fast), регион Germany, Ubuntu 24.04. Домен re-search.wiki в Namecheap. Reverse proxy — Nginx. Процесс-менеджер — PM2. SSL — Let's Encrypt через certbot (snap).
 
 **Отвергнутые варианты**:
 - Cloudflare Workers + D1: блокировки в РФ, vendor lock-in.
@@ -22,7 +22,7 @@
 **Решение**: MiroTalk SFU на поддомене `meet.re-search.wiki`, порт 3010 за Nginx reverse proxy. Порты медиа 40000-40100 tcp+udp открыты в ufw. STUN — публичный Google пока, coturn (TURN) — только при проблемах со связностью (см. ADR-007).
 
 **Последствия**:
-- Memory footprint mediasoup ощутимый: при 20+ участниках 5 GB RAM впритык.
+- Memory footprint mediasoup ощутимый: при 20+ участниках 4 GB RAM впритык.
 - C2C-вариант MiroTalk оставлен на будущее как fallback для пар.
 
 ## ADR-003: Транскрибация — Meetily (фаза 2)
