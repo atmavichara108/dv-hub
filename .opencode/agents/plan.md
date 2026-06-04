@@ -80,44 +80,8 @@ Reference subagents by name only, no @ prefix.
 
 Файлы в `context/DV/Operations/Kanban/Tasks/` — это submodule на репо dv-project. У Макса параллельно открыт второй клон этого же репо в Obsidian (~/Projects/dv-project/). Любые правки требуют синхронизации.
 
-После редактирования файла в context/ выполни строго в таком порядке:
+## Submodule sync
 
-1. Спроси у Макса: «закрываем сейчас Obsidian с dv-project, чтобы избежать конфликта?» — если открыт, попроси сохранить и закрыть.
+Для синхронизации submodule используй `/sync-task "сообщение коммита"`. Это единственный правильный путь. Не предлагай Максу `cd context && git add && git commit && git push` — это устаревший workflow.
 
-2. Закоммить изменения в submodule:
-```
-cd context git status git add DV/Operations/Kanban/Tasks/DV-XXX.md git commit -m "task(DV-XXX): краткое описание" git push origin main cd ..
-```
-
-3. Зафиксируй новый указатель submodule в dv-hub:
-```
-git add context git commit -m "chore: bump context" git push origin main
-```
-
-4. Напомни Максу выполнить в его волте Obsidian:
-```
-cd ~/Projects/dv-project && git pull origin main
-```
-
-Без шага 4 в Obsidian останется старая версия и при следующей правке через Obsidian Git возникнет конфликт.
-
-Каждый раз спрашивай Макса перед `git push`. Никогда не делай force push.
-
-### Шпаргалка для Макса «у меня что-то отвалилось»
-
-```
-# где сейчас submodule
-cd ~/Projects/dv-hub/context && git log -1 --oneline
-
-# что записано в dv-hub
-cd ~/Projects/dv-hub && git ls-tree HEAD context
-
-# что в обсидиановском клоне
-cd ~/Projects/dv-project && git log -1 --oneline
-
-# если три SHA разные — нужна синхронизация. Самый простой выход:
-# 1) убедись что нигде нет несохранённых правок
-# 2) в каждом из трёх мест: git pull origin main
-# 3) в dv-hub: npm run context:sync && git add context && git commit -m "chore: sync"
-```
-
+Obsidian-Git плагин сам пуллит изменения в обсидиановском клоне, закрывать Obsidian перед push не требуется.
