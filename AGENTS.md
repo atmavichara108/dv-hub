@@ -20,7 +20,7 @@ DV Hub — самохостимая исследовательская плат�
 - Runtime: Node.js + PM2
 - Reverse proxy: Nginx
 - Database: SQLite (better-sqlite3 или libSQL)
-- Host: Zomro VPS, Ubuntu 22.04, Poland
+- Host: Fornex VPS, Ubuntu 24.04, Germany
 - Domain: re-search.wiki
 - Video: MiroTalk SFU на meet.re-search.wiki
 
@@ -119,4 +119,13 @@ context/ # git submodule на dv-project (vault движения)
 ## Submodule context/
 
 `context/` — git submodule на dv-project. Параллельно открыт в Obsidian как `~/Projects/dv-project/`. Подробный flow синхронизации — см. `.opencode/agents/plan.md`.
+
+### При работе с submodule
+
+Для коммита и push изменений в `context/` (включая bump в dv-hub) **всегда используй**:
+```
+/sync-task "task(DV-XXX): краткое описание"
+```
+
+Этот шорткат делает: коммит в submodule → push в submodule → bump в dv-hub → push в dv-hub. Не пиши git-команды вручную.
 

@@ -75,5 +75,6 @@ if [ -n "$1" ]; then
   BUMP_MSG="chore: bump context for ${1}"
 fi
 git commit -m "$BUMP_MSG"
+git pull --rebase origin main
 git push
 echo "✅ dv-hub запушен с новым указателем"

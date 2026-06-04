@@ -22,12 +22,12 @@
 
 ### Сервер
 
-- **Провайдер**: Zomro
-- **Тариф**: Standard Intel (2 vCPU / 5 GB RAM / 35 GB NVMe)
-- **Регион**: Poland
-- **OS**: Ubuntu 22.04 LTS
+- **Провайдер**: Fornex
+- **Тариф**: 2 vCPU / 4 GB RAM / 40 GB NVMe Fast (CPU 3.0 GHz min)
+- **Регион**: Germany
+- **OS**: Ubuntu 24.04 LTS
 - **IP**: TODO (заполнить после DV-006)
-- **Hostname**: `dvhub-prod-01` (предложение)
+- **Hostname**: `dv-hub.host` (предложение)
 
 ### Сетевая схема
 
@@ -54,7 +54,7 @@ flowchart LR
 
 ### Контакты
 
-- Поддержка Zomro: панель https://cp.zomro.com/
+- Поддержка Fornex: панель https://ru.fornex.com (тикеты в панели управления)
 - Поддержка Namecheap (домен): https://www.namecheap.com/support/
 - Owner: Max (msivyhin@gmail.com)
 
@@ -77,7 +77,7 @@ TODO: список после раздачи ключей.
 
 Если потерял ключ:
 
-1. Войти в панель Zomro https://cp.zomro.com/
+1. Войти в панель Fornex https://ru.fornex.com/
 2. Использовать VNC console для доступа к серверу
 3. Добавить новый публичный ключ в `~/.ssh/authorized_keys`
 
@@ -256,12 +256,12 @@ journalctl --vacuum-time=7d
 Это известное ограничение (ADR-002). Решения по эскалации:
 
 1. Уменьшить количество одновременных участников комнаты
-2. Перейти на Exclusive Intel (10 GB RAM) у Zomro
+2. Перейти на тариф с 8 GB RAM у Fornex (настраиваемый тариф)
 3. Вынести MiroTalk на отдельный сервер
 
 ### Не пускает по SSH
 
-Использовать VNC console в панели Zomro, проверить:
+Использовать VNC console в панели Fornex, проверить:
 
 ```bash
 sudo tail -50 /var/log/auth.log
