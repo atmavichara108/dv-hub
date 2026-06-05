@@ -26,8 +26,8 @@
 - **Тариф**: 2 vCPU / 4 GB RAM / 40 GB NVMe Fast (CPU 3.0 GHz min)
 - **Регион**: Germany
 - **OS**: Ubuntu 24.04 LTS
-- **IP**: TODO (заполнить после DV-006)
-- **Hostname**: `dv-hub.host` (предложение)
+- **IP**: 89.127.198.185
+- **Hostname**: `dv-hub.host`
 
 ### Сетевая схема
 
