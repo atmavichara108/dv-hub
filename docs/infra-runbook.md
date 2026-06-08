@@ -363,11 +363,141 @@ systemctl status nginx  # Должно быть active (running)
 # git clone mirotalksfu, env, pm2 start
 ```
 
-### 3.5 Nginx + SSL (DV-027) — TODO
+### 3.5 Nginx + SSL (DV-027) — ВЫПОЛНЕНО
+
+> **Контекст**: Настройка reverse proxy для трёх доменов и получение SSL-сертификатов через Let's Encrypt.
 
 ```bash
-# server blocks для трёх хостов, certbot --nginx
+# === Шаг 1: Создание Nginx конфигов (ТОЛЬКО HTTP) ===
+
+# Для re-search.wiki
+sudo nano /etc/nginx/sites-available/re-search.wiki
 ```
+
+```nginx
+server {
+    listen 80;
+    server_name re-search.wiki www.re-search.wiki;
+
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+# Для meet.re-search.wiki
+sudo nano /etc/nginx/sites-available/meet.re-search.wiki
+```
+
+```nginx
+server {
+    listen 80;
+    server_name meet.re-search.wiki;
+
+    location / {
+        proxy_pass http://127.0.0.1:3010;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+# === Шаг 2: Активация конфигов ===
+
+# Создать symlink'и
+sudo ln -s /etc/nginx/sites-available/re-search.wiki /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/meet.re-search.wiki /etc/nginx/sites-enabled/
+
+# Удалить default конфиг (если есть)
+sudo rm /etc/nginx/sites-enabled/default
+
+# Проверить конфигурацию
+sudo nginx -t
+
+# Перезапустить Nginx
+sudo systemctl restart nginx
+
+# === Шаг 3: Получение SSL сертификатов ===
+
+# Certbot сам добавит SSL директивы и redirect с HTTP на HTTPS
+sudo certbot --nginx -d re-search.wiki -d www.re-search.wiki -d meet.re-search.wiki
+
+# === Шаг 4: Настройка автообновления сертификатов ===
+
+# Создать systemd service
+sudo nano /etc/systemd/system/certbot.service
+```
+
+```ini
+[Unit]
+Description=Certbot
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/certbot renew --quiet
+PrivateTmp=true
+```
+
+```bash
+# Создать systemd timer
+sudo nano /etc/systemd/system/certbot.timer
+```
+
+```ini
+[Unit]
+Description=Run certbot twice daily
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=12h
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+# Перезагрузить systemd
+sudo systemctl daemon-reload
+
+# Включить и запустить timer
+sudo systemctl enable certbot.timer
+sudo systemctl start certbot.timer
+
+# === Шаг 5: Проверка ===
+
+# Проверить сертификаты
+sudo certbot certificates
+
+# Проверить timer
+sudo systemctl status certbot.timer
+
+# С локальной машины
+curl -I https://re-search.wiki
+curl -I https://meet.re-search.wiki
+```
+
+**Примечания:**
+- `certbot renew --dry-run` может показывать ошибку для свежих сертификатов — это нормально
+- Реальное автообновление работает через systemd timer (2 раза в день)
+- Пока приложения не задеплоены, Nginx возвращает 502 Bad Gateway — это ожидаемо
 
 ---
 
