@@ -2,7 +2,7 @@
 import type { Plugin } from "@opencode-ai/plugin"
 
 const FORBIDDEN_PATHS = [
-  /\.env(\.|$)/,
+  /\.env(\.|$)(?!example)/,
   /auth\.json$/,
   /\.ssh\//,
   /keys-passwords/,

@@ -1,17 +1,22 @@
 module.exports = {
   apps: [
     {
-      name: 'dv-hub',
-      script: 'npx',
-      args: 'wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000',
-      cwd: '/home/user/webapp',
+      name: 'dvhub',
+      script: 'dist/server.js',
+      cwd: '/opt/dv-hub',
+      node_args: '--enable-source-maps',
       env: {
-        NODE_ENV: 'development',
-        PORT: 3000
+        NODE_ENV: 'production',
+        PORT: 8787,
+        DB_PATH: './data/dv-hub.db',
       },
       watch: false,
       instances: 1,
-      exec_mode: 'fork'
-    }
-  ]
+      exec_mode: 'fork',
+      max_memory_restart: '500M',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+      error_file: '~/.pm2/logs/dvhub-error.log',
+      out_file: '~/.pm2/logs/dvhub-out.log',
+    },
+  ],
 }

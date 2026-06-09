@@ -10,32 +10,30 @@
 // - Middleware: функция-прослойка между запросом и обработчиком.
 //   Проверяет авторизацию ДО выполнения основной логики.
 //
-// В этом файле реализована отправка magic‑link‑ов через useSend
-// вместо устаревшего Resend SDK.
+// В этом файле реализована отправка magic‑link‑ов через Resend SDK.
 
 import { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { UseSendClient } from "./useSendClient";
+import type { Database } from "better-sqlite3";
+import { Resend } from "resend";
 
 // ---------------------------------------------------------------------------
 //  Env
 // ---------------------------------------------------------------------------
 //
-// Bindings are provided by Cloudflare Workers. They expose:
-//   - DB:               D1 Database instance
+// Bindings for Node.js runtime (better-sqlite3 + process.env).
+//   - DB:               better-sqlite3 Database instance
 //   - TELEGRAM_BOT_TOKEN: Telegram Bot token
-//   - USESEND_API_KEY:   API key for useSend
-//   - USESEND_BASE_URL:  Base URL of useSend instance (e.g. https://api.usesend.com)
-//   - USESEND_FROM_EMAIL: From‑address used in outgoing mail
+//   - RESEND_API_KEY:    API key for Resend
+//   - RESEND_FROM_EMAIL: From‑address used in outgoing mail
 //
 export type Env = {
   Bindings: {
-    DB: D1Database;
+    DB: Database;
     TELEGRAM_BOT_TOKEN: string;
     TELEGRAM_BOT_USERNAME: string;
-    USESEND_API_KEY: string;
-    USESEND_BASE_URL: string;
-    USESEND_FROM_EMAIL: string;
+    RESEND_API_KEY: string;
+    RESEND_FROM_EMAIL: string;
   };
   Variables: {
     user: {
@@ -102,20 +100,18 @@ export async function createSession(
   userId: number,
 ): Promise<string> {
   const sessionId = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-  await c.env.DB.prepare(
+  c.env.DB.prepare(
     `INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)`,
-  )
-    .bind(sessionId, userId, expiresAt.toISOString())
-    .run();
+  ).run(sessionId, userId, expiresAt.toISOString());
 
   setCookie(c, "session", sessionId, {
     path: "/",
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "Lax",
-    maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
+    maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
   });
 
   return sessionId;
@@ -125,7 +121,7 @@ export async function createSession(
 //  Find or create a user (Telegram or e‑mail)
 // ---------------------------------------------------------------------------
 export async function findOrCreateUser(
-  db: D1Database,
+  db: Database,
   opts: {
     telegram_id?: string;
     email?: string;
@@ -133,64 +129,62 @@ export async function findOrCreateUser(
     avatar_url?: string;
   },
 ): Promise<{ id: number; role: string; name: string }> {
-  let user: any = null;
+  let user: { id: number; role: string; name: string } | undefined;
 
   if (opts.telegram_id) {
-    user = await db
+    user = db
       .prepare(`SELECT id, role, name FROM users WHERE telegram_id = ?`)
-      .bind(opts.telegram_id)
-      .first();
+      .get(opts.telegram_id) as
+      | { id: number; role: string; name: string }
+      | undefined;
   }
   if (!user && opts.email) {
-    user = await db
+    user = db
       .prepare(`SELECT id, role, name FROM users WHERE email = ?`)
-      .bind(opts.email)
-      .first();
+      .get(opts.email) as
+      | { id: number; role: string; name: string }
+      | undefined;
   }
 
   if (user) {
     // Update last_seen timestamp
-    await db
-      .prepare(`UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = ?`)
-      .bind(user.id)
-      .run();
+    db.prepare(
+      `UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = ?`,
+    ).run(user.id);
     return { id: user.id, role: user.role, name: user.name };
   }
 
   // Create a new guest user
-  const result = await db
+  const result = db
     .prepare(
       `INSERT INTO users (telegram_id, email, name, avatar_url, role) VALUES (?, ?, ?, ?, 'guest')`,
     )
-    .bind(
+    .run(
       opts.telegram_id || null,
       opts.email || null,
       opts.name,
       opts.avatar_url || null,
-    )
-    .run();
+    );
 
   return {
-    id: result.meta.last_row_id as number,
+    id: Number(result.lastInsertRowid),
     role: "guest",
     name: opts.name,
   };
 }
 
 // ---------------------------------------------------------------------------
-//  Magic‑link sending via useSend
+//  Magic‑link sending via Resend
 // ---------------------------------------------------------------------------
 export async function sendMagicLink(
   email: string,
   token: string,
-  useSendApiKey: string,
-  useSendBaseUrl: string,
-  useSendFromEmail: string,
+  resendApiKey: string,
+  resendFromEmail: string,
   baseUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
   const link = `${baseUrl}/auth/verify-email?token=${token}`;
 
-  // HTML template (kept identical to the previous Resend version)
   const html = `
     <div style="font-family:sans-serif; max-width:400px; padding:20px;">
       <h2 style="color:#27231e;">DV Hub</h2>
@@ -201,32 +195,44 @@ export async function sendMagicLink(
         Войти в DV Hub
       </a>
       <p style="color:#998c70;font-size:13px;margin-top:16px;">
-        Ссылка действительна 15 минут. Если вы не запрашивали вход — игнорируйте это письмо.
+        Ссылка действительна 15 минут. Если вы не запрашивали вход — игнорируйте это письмо.
       </p>
     </div>
   `;
 
-  // Initialise useSend client with injected configuration
-  const client = new UseSendClient({
-    apiKey: useSendApiKey,
-    baseUrl: useSendBaseUrl,
-    fromEmail: useSendFromEmail,
-  });
+  try {
+    const resend = new Resend(resendApiKey);
 
-  // Send the email
-  const result = await client.sendEmail({
-    to: [email],
-    subject: "Вход в DV Hub — Дискуссия Вечер",
-    html,
-  });
+    await resend.emails.send({
+      from: resendFromEmail,
+      to: [email],
+      subject: "Вход в DV Hub — Дискуссионные Вечера",
+      html,
+    });
 
-  return result; // { success: boolean, error?: string }
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to send email via Resend:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
 //  Auth middleware
 // ---------------------------------------------------------------------------
+// Public API paths that don't require authentication
+const PUBLIC_API_PATHS = ["/submit-idea"];
+
 export async function authMiddleware(c: Context<Env>, next: Next) {
+  // Skip auth for public endpoints
+  const path = c.req.path;
+  if (PUBLIC_API_PATHS.some((p) => path === p || path.endsWith(p))) {
+    return next();
+  }
+
   const sessionId = getCookie(c, "session");
   if (!sessionId) {
     return c.json(
@@ -238,13 +244,21 @@ export async function authMiddleware(c: Context<Env>, next: Next) {
     );
   }
 
-  const session = await c.env.DB.prepare(
+  const session = c.env.DB.prepare(
     `SELECT s.user_id, s.expires_at, u.id, u.name, u.role, u.telegram_id, u.email, u.avatar_url
      FROM sessions s JOIN users u ON s.user_id = u.id
      WHERE s.id = ? AND s.expires_at > datetime('now')`,
-  )
-    .bind(sessionId)
-    .first();
+  ).get(sessionId) as
+    | {
+        user_id: number;
+        id: number;
+        name: string;
+        role: string;
+        telegram_id?: string;
+        email?: string;
+        avatar_url?: string;
+      }
+    | undefined;
 
   if (!session) {
     deleteCookie(c, "session", { path: "/" });
@@ -275,7 +289,7 @@ export async function authMiddleware(c: Context<Env>, next: Next) {
 // ---------------------------------------------------------------------------
 export function requireRole(...allowedRoles: string[]) {
   return async (c: Context<Env>, next: Next) => {
-    const user = c.get("user") as any;
+    const user = c.get("user") as Env["Variables"]["user"] | undefined;
     if (!user || !allowedRoles.includes(user.role)) {
       return c.json(
         {

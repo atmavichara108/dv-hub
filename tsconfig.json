@@ -6,8 +6,10 @@
     "strict": true,
     "skipLibCheck": true,
     "lib": ["ESNext"],
-    "types": ["vite/client", "@cloudflare/workers-types", "jest"],
+    "types": ["vite/client", "@types/node", "jest"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   }
 }

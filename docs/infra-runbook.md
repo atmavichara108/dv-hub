@@ -351,11 +351,60 @@ certbot --version # Должно показать certbot version
 systemctl status nginx  # Должно быть active (running)
 ```
 
-### 3.3 Деплой dv-hub (DV-008) — TODO
+### 3.3 Деплой dv-hub (DV-008) — ВЫПОЛНЕНО
+
+> **Контекст**: Деплой Node.js приложения на VPS через PM2.
+> **Стек**: Node.js + better-sqlite3 + @hono/node-server, порт 8787.
 
 ```bash
-# git clone, npm ci, npm run build, pm2 start ecosystem.config.cjs
+# === Локальная сборка и деплой ===
+
+# Вариант 1: Автоматический (рекомендуется)
+bash scripts/deploy-vps.sh
+
+# Вариант 2: Ручной
+npm run build
+rsync -avz --delete \
+  --exclude 'node_modules' --exclude '.git' --exclude '.wrangler' \
+  --exclude '.env' --exclude 'data' \
+  -e "ssh -p 20108" ./ dv@re-search.wiki:/opt/dv-hub/
+
+ssh -p 20108 dv@re-search.wiki << 'REMOTE'
+  cd /opt/dv-hub
+  npm ci --omit=dev
+  node scripts/init-db.js
+  pm2 restart dvhub || pm2 start ecosystem.config.cjs
+  pm2 save
+REMOTE
+
+# === Первоначальная настройка на VPS ===
+
+# 1. Скопировать .env.example в .env и заполнить секреты
+cp .env.example .env
+nano .env  # заполнить TELEGRAM_BOT_TOKEN, RESEND_API_KEY, RESEND_FROM_EMAIL и т.д.
+
+# 2. Инициализировать базу данных
+node scripts/init-db.js
+
+# 3. Запустить через PM2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup  # скопировать и выполнить выведенную команду
+
+# === Локальная разработка ===
+
+# Dev-режим с автоперезагрузкой (tsx watch)
+npm run dev
+
+# Или собрать и запустить
+npm run build && npm start
 ```
+
+**Примечания:**
+- База данных создаётся автоматически при первом запуске (все миграции idempotent)
+- SQLite файл: `data/dv-hub.db` (WAL mode)
+- Статические файлы раздаются из `public/` директории
+- PM2 конфиг: `ecosystem.config.cjs` (имя процесса: `dvhub`, порт: 8787)
 
 ### 3.4 Деплой MiroTalk SFU (DV-011) — TODO
 
@@ -685,3 +734,5 @@ pm2 status
 |---|---|---|
 | 2026-05-25 | Создан скелет (DV-029) | Max |
 | 2026-06-04 | DV-006a: базовая настройка сервера (SSH hardening, ufw, fail2ban, стек) | Max |
+| 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |
+| 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |

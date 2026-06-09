@@ -24,13 +24,11 @@ auth.get("/me", async (c) => {
   const sessionId = getCookie(c, "session");
   if (!sessionId) return c.json({ user: null });
 
-  const session = await c.env.DB.prepare(
+  const session = c.env.DB.prepare(
     `SELECT u.id, u.name, u.role, u.telegram_id, u.email, u.avatar_url
      FROM sessions s JOIN users u ON s.user_id = u.id
      WHERE s.id = ? AND s.expires_at > datetime('now')`,
-  )
-    .bind(sessionId)
-    .first();
+  ).get(sessionId);
 
   if (!session) {
     deleteCookie(c, "session", { path: "/" });
@@ -45,7 +43,7 @@ auth.post("/telegram", async (c) => {
   const body = await c.req.json();
   const botToken = c.env.TELEGRAM_BOT_TOKEN;
 
-  // Проверка auth_date (не старше 5 минут)
+  // Проверка auth_date (не старше 5 минут)
   const authDate = parseInt(body.auth_date);
   if (Date.now() / 1000 - authDate > 300) {
     return c.json(
@@ -94,24 +92,21 @@ auth.post("/email", async (c) => {
 
   // Создание токена и запись в БД
   const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 минут
-  await c.env.DB.prepare(
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 минут
+  c.env.DB.prepare(
     `INSERT INTO email_tokens (token, email, expires_at) VALUES (?, ?, ?)`,
-  )
-    .bind(token, email.toLowerCase().trim(), expiresAt.toISOString())
-    .run();
+  ).run(token, email.toLowerCase().trim(), expiresAt.toISOString());
 
   // Базовый URL для письма
   const url = new URL(c.req.url);
   const baseUrl = `${url.protocol}//${url.host}`;
 
-  // Отправка письма через useSend
+  // Отправка письма через Resend
   const result = await sendMagicLink(
     email,
     token,
-    c.env.USESEND_API_KEY,
-    c.env.USESEND_BASE_URL,
-    c.env.USESEND_FROM_EMAIL,
+    c.env.RESEND_API_KEY,
+    c.env.RESEND_FROM_EMAIL,
     baseUrl,
   );
 
@@ -138,21 +133,19 @@ auth.get("/verify-email", async (c) => {
   if (!token) return c.redirect("/?auth_error=missing_token");
 
   // Поиск неиспользованного токена, пока не истёк
-  const record = await c.env.DB.prepare(
+  const record = c.env.DB.prepare(
     `SELECT * FROM email_tokens WHERE token = ? AND used = 0 AND expires_at > datetime('now')`,
-  )
-    .bind(token)
-    .first();
+  ).get(token) as { email: string } | undefined;
 
   if (!record) return c.redirect("/?auth_error=invalid_token");
 
   // Помечаем токен как использованный
-  await c.env.DB.prepare(`UPDATE email_tokens SET used = 1 WHERE token = ?`)
-    .bind(token)
-    .run();
+  c.env.DB.prepare(`UPDATE email_tokens SET used = 1 WHERE token = ?`).run(
+    token,
+  );
 
   // Поиск/создание пользователя по e‑mail
-  const email = record.email as string;
+  const email = record.email;
   const user = await findOrCreateUser(c.env.DB, {
     email,
     name: email.split("@")[0], // имя берём из части перед @
@@ -166,9 +159,7 @@ auth.get("/verify-email", async (c) => {
 auth.post("/logout", async (c) => {
   const sessionId = getCookie(c, "session");
   if (sessionId) {
-    await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`)
-      .bind(sessionId)
-      .run();
+    c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).run(sessionId);
     deleteCookie(c, "session", { path: "/" });
   }
   return c.json({ ok: true });

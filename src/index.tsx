@@ -1,44 +1,32 @@
 // src/index.tsx
-// Главный файл приложения. Hono — это web-фреймворк (как Express, но легче).
-// Здесь мы:
-// 1. Объявляем типы переменных окружения (Bindings)
-// 2. Подключаем роуты: auth (авторизация) и api (данные)
-// 3. Раздаём статические файлы
-// 4. Отдаём HTML-оболочку SPA на все страницы
+// Главный файл приложения. Hono — web-фреймворк.
+// Мигрировано с Cloudflare Workers на Node.js (DV-008).
+//
+// Экспортирует createApp(env) — фабрику, которая создаёт Hono app
+// с инжектированным окружением и подключёнными роутами.
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import api from './routes/api'
-import auth from './routes/auth'
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import type { Env } from "./lib/auth";
+import api from "./routes/api";
+import auth from "./routes/auth";
 
-// Bindings — переменные окружения, которые Cloudflare передаёт в Worker.
-// DB — база данных D1
-// TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME — для проверки Telegram Login
-// RESEND_API_KEY — для отправки email
+type AppBindings = Env["Bindings"];
 
-type Bindings = {
-  DB: D1Database
-  TELEGRAM_BOT_TOKEN: string
-  TELEGRAM_BOT_USERNAME: string
-  RESEND_API_KEY: string
-}
+export function createApp(env: AppBindings): Hono<Env> {
+  const app = new Hono<Env>();
 
-const app = new Hono<{ Bindings: Bindings }>()
+  app.use("/api/*", cors());
 
-app.use('/api/*', cors())
+  // Подключаем роуты
+  app.route("/auth", auth);
+  app.route("/api", api);
 
-// Подключаем auth-роуты
-app.route('/auth', auth)
-
-// Подключаем API-роуты
-app.route('/api', api)
-
-// ── HTML SHELL ────────────────────────────────────────────────
-// Это SPA (Single Page Application) — один HTML загружается один раз,
-// дальше JavaScript рисует разные страницы без перезагрузки.
-// TELEGRAM_BOT_USERNAME передаём в HTML чтобы фронтенд мог показать виджет.
-
-const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE html>
+  // ── HTML SHELL ────────────────────────────────────────────────
+  const html = (
+    title: string = "DV Hub",
+    botUsername: string = "",
+  ) => `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -46,8 +34,8 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
   <meta property="og:title" content="${title} · Дискуссионные Вечера">
   <meta property="og:description" content="Платформа для организации и проведения интеллектуальных дискуссий. Материалы, темы, видеозвонки, совместный анализ.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://dv-hub.pages.dev/static/og-image.png">
-  <meta property="og:url" content="https://dv-hub.pages.dev">
+  <meta property="og:image" content="https://re-search.wiki/static/og-image.png">
+  <meta property="og:url" content="https://re-search.wiki">
   <meta name="description" content="DV Hub — платформа для организации и проведения дискуссионных вечеров. Материалы, темы, комнаты, видеозвонки.">
   <title>${title} · Дискуссионные Вечера</title>
 
@@ -137,23 +125,34 @@ const html = (title: string = 'DV Hub', botUsername: string = '') => `<!DOCTYPE 
 <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/locale/ru.min.js"></script>
 <script src="/static/app.js"></script>
 </body>
-</html>`
+</html>`;
 
-// SPA — все страницы отдают один HTML
-const page = (c: any, title: string) => c.html(html(title, c.env.TELEGRAM_BOT_USERNAME || ''))
+  // SPA — все страницы отдают один HTML
+  const page = (c: { html: (s: string) => Response | Promise<Response> }, title: string) =>
+    c.html(html(title, env.TELEGRAM_BOT_USERNAME || ""));
 
-app.get('/', (c) => page(c, 'Дашборд'))
-app.get('/materials', (c) => page(c, 'Материалы'))
-app.get('/materials/*', (c) => page(c, 'Материалы'))
-app.get('/topics', (c) => page(c, 'Темы'))
-app.get('/topics/*', (c) => page(c, 'Темы'))
-app.get('/rooms', (c) => page(c, 'Дискуссии'))
-app.get('/rooms/*', (c) => page(c, 'Дискуссии'))
-app.get('/media', (c) => page(c, 'Медиа'))
-app.get('/faq', (c) => page(c, 'FAQ'))
-app.get('/login', (c) => page(c, 'Вход'))
-app.get('/admin', (c) => page(c, 'Админка'))
-app.get('/admin/*', (c) => page(c, 'Админка'))
-app.get('/profile', (c) => page(c, 'Профиль'))
+  app.get("/", (c) => page(c, "Дашборд"));
+  app.get("/materials", (c) => page(c, "Материалы"));
+  app.get("/materials/*", (c) => page(c, "Материалы"));
+  app.get("/topics", (c) => page(c, "Темы"));
+  app.get("/topics/*", (c) => page(c, "Темы"));
+  app.get("/rooms", (c) => page(c, "Дискуссии"));
+  app.get("/rooms/*", (c) => page(c, "Дискуссии"));
+  app.get("/media", (c) => page(c, "Медиа"));
+  app.get("/faq", (c) => page(c, "FAQ"));
+  app.get("/login", (c) => page(c, "Вход"));
+  app.get("/admin", (c) => page(c, "Админка"));
+  app.get("/admin/*", (c) => page(c, "Админка"));
+  app.get("/profile", (c) => page(c, "Профиль"));
 
-export default app
+  return app;
+}
+
+// Default export for backward compatibility (not used in Node.js mode)
+export default createApp({
+  DB: null as never,
+  TELEGRAM_BOT_TOKEN: "",
+  TELEGRAM_BOT_USERNAME: "",
+  RESEND_API_KEY: "",
+  RESEND_FROM_EMAIL: "",
+});

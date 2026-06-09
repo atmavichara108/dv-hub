@@ -1,14 +1,25 @@
-import build from "@hono/vite-build/cloudflare-pages";
-import devServer from "@hono/vite-dev-server";
-import adapter from "@hono/vite-dev-server/cloudflare";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [
-    build(),
-    devServer({
-      adapter,
-      entry: "src/index.tsx",
-    }),
-  ],
+  build: {
+    outDir: "dist",
+    rollupOptions: {
+      input: "src/server.ts",
+      output: {
+        entryFileNames: "server.js",
+      },
+      // Native modules that must not be bundled
+      external: [
+        "better-sqlite3",
+        "dotenv",
+        "resend",
+        "@hono/node-server",
+        "@hono/node-server/serve-static",
+      ],
+    },
+    target: "node20",
+    ssr: true,
+    // Copy public/ contents to dist/static/ for production
+    copyPublicDir: false,
+  },
 });

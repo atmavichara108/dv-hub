@@ -1,3 +1,5 @@
+# DEPRECATED: project migrated to Node.js, see ecosystem.config.cjs
+
 name = "dv-hub"
 account_id = "YOUR_ACCOUNT_ID"
 workers_dev = true

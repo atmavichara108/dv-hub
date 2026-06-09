@@ -1,47 +1,43 @@
-
 {
   "name": "dv-hub",
   "type": "module",
   "scripts": {
     "task:sync": "bash scripts/sync-task.sh",
-    "dev": "vite",
+    "dev": "tsx watch src/server.ts",
     "build": "vite build",
-    "build:server": "echo 'TODO DV-008: esbuild src/server.ts --bundle --platform=node --outfile=dist/server.js' && exit 1",
-    "preview": "wrangler pages dev dist",
-
-    "dev:sandbox": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
-    "dev:node": "echo 'TODO DV-008: node dist/server.js' && exit 1",
-
+    "build:server": "vite build",
+    "start": "node dist/server.js",
+    "dev:node": "tsx watch src/server.ts",
+    "dev:cf": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
     "deploy:cf": "npm run build && wrangler pages deploy dist --project-name dv-hub",
-    "deploy:vps": "echo 'TODO DV-008: rsync dist/ + ssh pm2 restart' && exit 1",
-    "deploy": "npm run deploy:cf",
-
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-
+    "deploy:vps": "bash scripts/deploy-vps.sh",
+    "deploy": "npm run deploy:vps",
     "context:init": "git submodule update --init --recursive",
     "context:sync": "cd context && git pull origin main && cd ..",
     "context:bump": "git add context && git commit -m \"chore: bump context\"",
     "context:status": "cd context && git status && cd ..",
     "context:log": "cd context && git log --oneline -10 && cd ..",
-
-    "db:migrate:local": "wrangler d1 migrations apply dv-hub-production --local",
-    "db:seed": "wrangler d1 execute dv-hub-production --local --file=./seed.sql",
-    "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local && npm run db:seed",
-    "db:export": "echo 'TODO DV-007: wrangler d1 export dv-hub-production --output=./backup.sql' && exit 1",
-
+    "db:init": "node scripts/init-db.js",
+    "db:migrate:local": "node scripts/init-db.js",
+    "db:seed": "echo 'TODO: seed script for better-sqlite3' && exit 1",
+    "db:reset": "rm -f data/dv-hub.db data/dv-hub.db-wal data/dv-hub.db-shm && npm run db:init",
     "lint": "eslint . --ext .ts",
     "test": "jest",
-    "ci": "npm run lint && npm run test && npm run build",
-    "prepare-test-env": "npm run db:reset && npm run db:seed"
+    "ci": "npm run lint && npm run build"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20260401.1",
-    "hono": "^4.12.9"
+    "@hono/node-server": "^2.0.4",
+    "better-sqlite3": "^12.10.0",
+    "dotenv": "^17.4.2",
+    "hono": "^4.12.9",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "@hono/vite-build": "^1.2.0",
     "@hono/vite-dev-server": "^0.18.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.29",
     "@typescript-eslint/eslint-plugin": "^8.59.1",
     "@typescript-eslint/parser": "^8.59.1",
     "eslint": "^8.57.1",
@@ -50,6 +46,7 @@
     "jest": "^29.7.0",
     "prettier": "^3.8.3",
     "ts-jest": "^29.1.2",
+    "tsx": "^4.22.4",
     "typescript": "^5.4.2",
     "vite": "^6.3.5",
     "wrangler": "^4.4.0"

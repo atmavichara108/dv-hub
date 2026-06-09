@@ -1,6 +1,9 @@
 # prod
 dist/
 
+# database
+data/
+
 # dev
 .yarn/
 !.yarn/releases
@@ -33,12 +36,14 @@ lerna-debug.log*
 
 # misc
 .DS_Store
-.env
 .aider*
 vite.config.*.timestamp-*
 
 # wrangler (local config with secrets)
 wrangler.toml
+
+# test files
+test-*.js
 
 # test coverage
 coverage/
