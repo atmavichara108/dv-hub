@@ -548,6 +548,59 @@ curl -I https://meet.re-search.wiki
 - Реальное автообновление работает через systemd timer (2 раза в день)
 - Пока приложения не задеплоены, Nginx возвращает 502 Bad Gateway — это ожидаемо
 
+### 3.6 Миграция БД с Cloudflare D1 (DV-007) — ВЫПОЛНЕНО
+
+> **Контекст**: Перенос данных из Cloudflare D1 в локальный SQLite файл.
+> **Дата**: 2026-06-10
+
+```bash
+# === Экспорт из Cloudflare D1 ===
+
+# Локально: экспортировать данные
+wrangler d1 export dv-hub-production --output=./backup.sql
+
+# === Очистка backup от Cloudflare-специфичных элементов ===
+
+# Удалить таблицу d1_migrations (специфична для Cloudflare)
+# Добавить таблицы из миграции 0002 (email_tokens, messages)
+# Результат: clean-backup.sql
+
+# === Импорт на сервер ===
+
+# Скопировать на сервер
+scp -i ~/.ssh/id_ed25519 -P 28108 clean-backup.sql dv@re-search.wiki:/opt/dv-hub/
+
+# На сервере: удалить текущую БД и импортировать
+ssh -i ~/.ssh/id_ed25519 -p 28108 dv@re-search.wiki
+cd /opt/dv-hub
+rm data/dv-hub.db data/dv-hub.db-wal data/dv-hub.db-shm
+sqlite3 data/dv-hub.db < clean-backup.sql
+
+# Проверить таблицы
+sqlite3 data/dv-hub.db ".tables"
+
+# Проверить данные
+sqlite3 data/dv-hub.db "SELECT 'cells', COUNT(*) FROM cells UNION ALL SELECT 'users', COUNT(*) FROM users UNION ALL SELECT 'materials', COUNT(*) FROM materials;"
+
+# Перезапустить приложение
+pm2 restart dvhub
+```
+
+**Мигрированные данные:**
+- cells: 1 (Дискуссионные Вечера)
+- users: 1 (Макс Рудра, admin)
+- materials: 3
+- topics: 3
+- discussion_rooms: 1
+- publications: 1
+- email_tokens: 0 (новая таблица)
+- messages: 0 (новая таблица)
+
+**Примечания:**
+- Файлы backup.sql и clean-backup.sql сохранены в репозитории для истории
+- d1_migrations таблица удалена (специфична для Cloudflare)
+- Таблицы email_tokens и messages добавлены из миграции 0002
+
 ---
 
 ## 4. Обновления и rollback
@@ -736,3 +789,4 @@ pm2 status
 | 2026-06-04 | DV-006a: базовая настройка сервера (SSH hardening, ufw, fail2ban, стек) | Max |
 | 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |
 | 2026-06-10 | DV-008: первый деплой dv-hub на VPS (Node.js 22 + PM2) | Max |
+| 2026-06-10 | DV-007: миграция БД с Cloudflare D1 на локальный SQLite | Max |
