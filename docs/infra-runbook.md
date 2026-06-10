@@ -45,7 +45,7 @@ flowchart LR
 
 | Порт | Протокол | Назначение | Открыт наружу |
 |---|---|---|---|
-| 20108 | TCP | SSH (нестандартный) | да (key-only) |
+| 28108 | TCP | SSH (нестандартный) | да (key-only) |
 | 80 | TCP | HTTP → 301 на HTTPS | да |
 | 443 | TCP | HTTPS (Nginx) | да |
 | 3010 | TCP | MiroTalk SFU (за Nginx) | нет |
@@ -66,8 +66,8 @@ flowchart LR
 
 - Пользователь: `dv` (не root)
 - Аутентификация: только ключ, парольный вход отключён
-- Порт: 20108 (нестандартный, стандартный 22 закрыт)
-- Команда: `ssh -p 20108 dv@re-search.wiki`
+- Порт: 28108 (нестандартный, стандартный 22 закрыт)
+- Команда: `ssh -p 28108 dv@re-search.wiki`
 - Ключи: см. `DV/Site/keys-passwords.mdenc` (зашифрованный файл в волте, не в репо)
 
 ### Кто имеет доступ
@@ -153,7 +153,7 @@ exit
 nano /etc/ssh/sshd_config
 
 # Изменить параметры:
-# Port 20108                    # Нестандартный порт — снижает количество автоматических атак
+# Port 28108                    # Нестандартный порт — снижает количество автоматических атак
 # PermitRootLogin no            # Запретить вход root по SSH
 # PasswordAuthentication no     # Только ключи, никаких паролей
 # PubkeyAuthentication yes      # Включить аутентификацию по ключу
@@ -166,7 +166,7 @@ sshd -t
 systemctl restart ssh
 
 # ВАЖНО: Открыть НОВЫЙ терминал и проверить вход:
-# ssh -p 20108 dv@<IP-адрес>
+# ssh -p 28108 dv@<IP-адрес>
 # Если работает — закрыть старую сессию. Если нет — исправить конфиг!
 
 # === ЭТАП 4: Firewall (UFW) ===
@@ -179,7 +179,7 @@ ufw default deny incoming
 ufw default allow outgoing
 
 # Открыть SSH (нестандартный порт)
-ufw allow 20108/tcp comment 'SSH (custom port)'
+ufw allow 28108/tcp comment 'SSH (custom port)'
 
 # Открыть HTTP (для редиректа на HTTPS и certbot)
 ufw allow 80/tcp comment 'HTTP'
@@ -237,7 +237,7 @@ fail2ban-client status sshd
 **Примечания:**
 - Swap НЕ создавался — при необходимости проще расширить RAM через панель Fornex
 - Timezone: Europe/Moscow (не Berlin) — платформа ориентирована на МСК
-- SSH порт: 20108 (нестандартный) — снижает шум от ботов
+- SSH порт: 28108 (нестандартный) — снижает шум от ботов
 
 ### 3.2 Установка стека (DV-006a) — ВЫПОЛНЕНО
 
@@ -353,8 +353,8 @@ systemctl status nginx  # Должно быть active (running)
 
 ### 3.3 Деплой dv-hub (DV-008) — ВЫПОЛНЕНО
 
-> **Контекст**: Деплой Node.js приложения на VPS через PM2.
-> **Стек**: Node.js + better-sqlite3 + @hono/node-server, порт 8787.
+> **Контекст**: Первый деплой Node.js приложения на VPS через PM2.
+> **Стек**: Node.js 22 + better-sqlite3 + @hono/node-server, порт 8787.
 
 ```bash
 # === Локальная сборка и деплой ===
@@ -367,9 +367,9 @@ npm run build
 rsync -avz --delete \
   --exclude 'node_modules' --exclude '.git' --exclude '.wrangler' \
   --exclude '.env' --exclude 'data' \
-  -e "ssh -p 20108" ./ dv@re-search.wiki:/opt/dv-hub/
+  -e "ssh -i ~/.ssh/id_ed25519 -p 28108" ./ dv@re-search.wiki:/opt/dv-hub/
 
-ssh -p 20108 dv@re-search.wiki << 'REMOTE'
+ssh -i ~/.ssh/id_ed25519 -p 28108 dv@re-search.wiki << 'REMOTE'
   cd /opt/dv-hub
   npm ci --omit=dev
   node scripts/init-db.js
@@ -735,4 +735,4 @@ pm2 status
 | 2026-05-25 | Создан скелет (DV-029) | Max |
 | 2026-06-04 | DV-006a: базовая настройка сервера (SSH hardening, ufw, fail2ban, стек) | Max |
 | 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |
-| 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |
+| 2026-06-10 | DV-008: первый деплой dv-hub на VPS (Node.js 22 + PM2) | Max |
