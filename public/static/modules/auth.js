@@ -116,7 +116,7 @@ function showLoginModal() {
 
         const script = document.createElement('script')
         script.async = true
-        script.src = `https://telegram.org/js/telegram-widget.js?22`
+        script.src = `/static/telegram-widget.js`
         script.setAttribute('data-telegram-login', botUsername)
         script.setAttribute('data-size', 'large')
         script.setAttribute('data-radius', '8')
