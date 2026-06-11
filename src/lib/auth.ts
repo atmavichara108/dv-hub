@@ -223,13 +223,39 @@ export async function sendMagicLink(
 // ---------------------------------------------------------------------------
 //  Auth middleware
 // ---------------------------------------------------------------------------
-// Public API paths that don't require authentication
-const PUBLIC_API_PATHS = ["/submit-idea"];
+// Public POST endpoints that don't require authentication
+// NOTE: c.req.path returns the full path including the mount prefix.
+const PUBLIC_WRITE_PATHS = ["/api/submit-idea"];
+
+// GET path prefixes that are publicly accessible without authentication.
+// Any GET request NOT matching these prefixes (e.g. /api/profile) still requires auth.
+// NOTE: c.req.path returns the full path including the mount prefix (e.g. /api/dashboard).
+const PUBLIC_GET_PREFIXES = [
+  "/api/dashboard",
+  "/api/materials",
+  "/api/topics",
+  "/api/rooms",
+  "/api/publications",
+  "/api/users",
+];
 
 export async function authMiddleware(c: Context<Env>, next: Next) {
-  // Skip auth for public endpoints
   const path = c.req.path;
-  if (PUBLIC_API_PATHS.some((p) => path === p || path.endsWith(p))) {
+  const method = c.req.method;
+
+  // Allow unauthenticated GET requests on public read-only paths.
+  // Admin routes and non-listed GET paths (e.g. /api/profile) always require auth.
+  if (method === "GET") {
+    const isPublicGet = PUBLIC_GET_PREFIXES.some(
+      (prefix) => path === prefix || path.startsWith(prefix + "/"),
+    );
+    if (isPublicGet) {
+      return next();
+    }
+  }
+
+  // Allow specific public write endpoints (e.g. idea submission)
+  if (PUBLIC_WRITE_PATHS.some((p) => path === p || path.endsWith(p))) {
     return next();
   }
 

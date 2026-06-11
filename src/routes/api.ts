@@ -10,6 +10,8 @@ const api = new Hono<{
 }>();
 
 api.use("/*", cors());
+// Auth is method-aware: GET requests on non-admin paths are public;
+// POST/PATCH/DELETE and all /admin/* routes require authentication.
 api.use("/*", authMiddleware);
 
 // ── DASHBOARD ──────────────────────────────────────────────

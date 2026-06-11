@@ -60,8 +60,13 @@ rsync -avz \
   "${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/"
 
 # Step 4: Remote — install production deps, init DB, and restart
+# IMPORTANT: load nvm so npm ci compiles native modules (better-sqlite3) for the correct Node version
 echo "→ Installing deps & restarting on VPS..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+  echo "Node version: $(node --version)"
   cd /opt/dv-hub
   npm ci --omit=dev
   node scripts/init-db.js
