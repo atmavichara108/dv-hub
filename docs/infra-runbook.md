@@ -17,7 +17,7 @@
 |---|---|---|
 | `re-search.wiki` | Основной сайт dv-hub | TODO (DV-005) |
 | `www.re-search.wiki` | Redirect → re-search.wiki | TODO |
-| `meet.re-search.wiki` | MiroTalk SFU (видеосвязь) | TODO (DV-011) |
+| `meet.re-search.wiki` | MiroTalk SFU (видеосвязь) | TODO (DV-011, скрипт готов) |
 | `drive.re-search.wiki` | Twake Drive (Phase 2) | LATER |
 
 ### Сервер
@@ -406,11 +406,44 @@ npm run build && npm start
 - Статические файлы раздаются из `public/` директории
 - PM2 конфиг: `ecosystem.config.cjs` (имя процесса: `dvhub`, порт: 8787)
 
-### 3.4 Деплой MiroTalk SFU (DV-011) — TODO
+### 3.4 Деплой MiroTalk SFU (DV-011) — TODO (скрипт готов)
+
+> **Контекст**: Развёртывание MiroTalk SFU для видеозвонков на meet.re-search.wiki.
+> **Скрипт**: `scripts/deploy-mirotalk.sh` (автоматизирует clone → .env → npm install → PM2)
+> **Nginx reference**: `scripts/nginx-meet.conf`
+> **Подробная инструкция**: `docs/mirotalk-setup.md`
 
 ```bash
-# git clone mirotalksfu, env, pm2 start
+# === Автоматический деплой ===
+bash scripts/deploy-mirotalk.sh
+
+# === Post-deploy: настроить .env ===
+ssh -i ~/.ssh/id_ed25519 -p 28108 dv@re-search.wiki
+cd /opt/mirotalksfu
+nano .env
+# Установить:
+#   HTTP_PORT=3010
+#   HTTPS=false (SSL на Nginx)
+#   SFU_ANNOUNCED_IP=89.127.198.185
+#   API_KEY_SECRET=<openssl rand -hex 32>
+
+# Перезапустить
+pm2 restart mirotalksfu
+
+# === Проверка ===
+pm2 status mirotalksfu
+curl -I https://meet.re-search.wiki
+
+# === Firewall: media ports (если ещё не открыты) ===
+sudo ufw allow 40000:40100/tcp comment 'MiroTalk media TCP'
+sudo ufw allow 40000:40100/udp comment 'MiroTalk media UDP'
 ```
+
+**Примечания:**
+- SSL для meet.re-search.wiki уже настроен через certbot (DV-027)
+- Nginx reverse proxy уже сконфигурирован (DV-027)
+- MiroTalk использует свой ecosystem.config.js (не наш ecosystem.config.cjs)
+- При обновлении: `cd /opt/mirotalksfu && git pull && npm install && pm2 restart mirotalksfu`
 
 ### 3.5 Nginx + SSL (DV-027) — ВЫПОЛНЕНО
 
