@@ -406,7 +406,7 @@ npm run build && npm start
 - Статические файлы раздаются из `public/` директории
 - PM2 конфиг: `ecosystem.config.cjs` (имя процесса: `dvhub`, порт: 8787)
 
-### 3.4 Деплой MiroTalk SFU (DV-011) — TODO (скрипт готов)
+### 3.4 Деплой MiroTalk SFU (DV-011) — TODO (скрипт готов, требуется тестирование на VPS)
 
 > **Контекст**: Развёртывание MiroTalk SFU для видеозвонков на meet.re-search.wiki.
 > **Скрипт**: `scripts/deploy-mirotalk.sh` (автоматизирует clone → .env → npm install → PM2)
@@ -823,3 +823,4 @@ pm2 status
 | 2026-06-08 | DV-007/DV-008: миграция с Cloudflare Workers на Node.js + better-sqlite3 | Build Agent |
 | 2026-06-10 | DV-008: первый деплой dv-hub на VPS (Node.js 22 + PM2) | Max |
 | 2026-06-10 | DV-007: миграция БД с Cloudflare D1 на локальный SQLite | Max |
+| 2026-06-19 | DV-011: деплой MiroTalk SFU на meet.re-search.wiki | Max |

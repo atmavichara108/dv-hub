@@ -1,15 +1,4 @@
-#!/usr/bin/env bash
-# scripts/deploy-mirotalk.sh
-# Deploy MiroTalk SFU to Fornex VPS (meet.re-search.wiki).
-# Run from project root: bash scripts/deploy-mirotalk.sh
-#
-# Prerequisites:
-#   - SSH key configured for dv@re-search.wiki (port 28108)
-#   - Node.js 22+ installed on VPS (via nvm)
-#   - PM2 installed globally on VPS
-#   - Nginx configured with SSL for meet.re-search.wiki (DV-027)
-#   - Ports 40000-40100 open in firewall (TCP + UDP)
-
+#!/bin/bash
 set -euo pipefail
 
 VPS_USER="dv"
@@ -33,53 +22,96 @@ ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE
   fi
 REMOTE
 
-# Step 2: Create .env if not exists
-echo "→ Checking .env..."
+# Step 2: Setup .env from .env.template
+echo "→ Setting up .env..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
   cd /opt/mirotalksfu
   if [ ! -f ".env" ]; then
-    cp .env.example .env
-    echo "Created .env from .env.example"
-    echo "IMPORTANT: Edit .env and set:"
-    echo "  - HTTP_PORT=3010"
-    echo "  - HTTPS=false"
-    echo "  - SFU_ANNOUNCED_IP=89.127.198.185"
-    echo "  - API_KEY_SECRET=$(openssl rand -hex 32)"
+    if [ -f ".env.template" ]; then
+      cp .env.template .env
+    else
+      cat > .env << 'ENVEOF'
+# Server
+HTTP_PORT=3010
+HTTPS=false
+HOST=0.0.0.0
+
+# Database
+DB_PATH=./data/mirotalk.db
+
+# MediaSoup
+SFU_ANNOUNCED_IP=89.127.198.185
+
+# API
+API_KEY_SECRET=
+API_KEY_SALT=
+
+# TURN
+TURN_URL=
+TURN_USERNAME=
+TURN_CREDENTIAL=
+
+# Logging
+LOG_LEVEL=info
+ENVEOF
+    fi
+    echo "Created .env"
+  fi
+  # Verify .env has required vars
+  grep -E "HTTP_PORT|HTTPS|SFU_ANNOUNCED_IP|API_KEY_SECRET" .env
+REMOTE
+
+# Step 3: Install dependencies and build
+echo "→ Installing dependencies and building..."
+ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  cd /opt/mirotalksfu
+  source ~/.nvm/nvm.sh
+  nvm use 22
+  npm ci
+  npm run build:mediasoup-client
+REMOTE
+
+# Step 4: Start/restart via PM2
+echo "→ Starting/restarting MiroTalk SFU via PM2..."
+ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  cd /opt/mirotalksfu
+  source ~/.nvm/nvm.sh
+  nvm use 22
+  pm2 delete mirotalksfu 2>/dev/null || true
+  pm2 start npm --name mirotalksfu -- run start
+  pm2 save
+  pm2 startup
+REMOTE
+
+# Step 5: Check firewall ports
+echo "→ Checking firewall ports..."
+ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  # Check if media ports are open
+  if ! sudo ufw status | grep -q "40000:40100"; then
+    echo "⚠️  WARNING: Media ports 40000-40100 not open!"
+    echo "Run these commands to open them:"
+    echo "  sudo ufw allow 40000:40100/tcp comment 'MiroTalk media TCP'"
+    echo "  sudo ufw allow 40000:40100/udp comment 'MiroTalk media UDP'"
+    echo "  sudo ufw reload"
   else
-    echo ".env already exists, skipping"
+    echo "✓ Media ports 40000-40100 are open"
   fi
 REMOTE
 
-# Step 3: Install dependencies
-echo "→ Installing dependencies..."
-ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
-  export NVM_DIR="$HOME/.nvm"
-  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-  cd /opt/mirotalksfu
-  npm install
-REMOTE
-
-# Step 4: Start or restart PM2
-echo "→ Starting/restarting MiroTalk SFU..."
-ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
-  cd /opt/mirotalksfu
-  pm2 delete mirotalksfu 2>/dev/null || true
-  pm2 start ecosystem.config.js --name mirotalksfu
-  pm2 save
-REMOTE
-
-# Step 5: Verify
+# Step 6: Verify
 echo "→ Verifying deployment..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  source ~/.nvm/nvm.sh
+  nvm use 22
   pm2 status mirotalksfu
-  curl -sI http://localhost:3010 | head -5
+  sleep 3
+  curl -I http://localhost:3010
 REMOTE
 
 echo "=== Deploy complete ==="
 echo ""
-echo "IMPORTANT: After deploy, manually:"
+echo "Post-deploy manual steps:"
 echo "1. Edit /opt/mirotalksfu/.env and set SFU_ANNOUNCED_IP=89.127.198.185"
-echo "2. Set API_KEY_SECRET to a random value"
+echo "2. Set API_KEY_SECRET=$(openssl rand -hex 32)"
 echo "3. Run: pm2 restart mirotalksfu"
 echo "4. Open https://meet.re-search.wiki to verify"

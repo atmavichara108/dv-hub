@@ -17,7 +17,7 @@ bash scripts/deploy-mirotalk.sh
 
 The script will:
 1. Clone MiroTalk SFU repo to `/opt/mirotalksfu` on VPS (or pull if exists)
-2. Create `.env` from `.env.example` if not present
+2. Create `.env` from `.env.template` if not present
 3. Install npm dependencies
 4. Start the app via PM2
 
