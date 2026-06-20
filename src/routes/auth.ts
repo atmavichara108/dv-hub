@@ -14,6 +14,9 @@ import {
   createSession,
   findOrCreateUser,
   sendMagicLink,
+  createTelegramAuthToken,
+  findTelegramAuthToken,
+  markTelegramAuthTokenUsed,
   type Env,
 } from "../lib/auth";
 
@@ -155,6 +158,92 @@ auth.get("/verify-email", async (c) => {
   return c.redirect("/?auth_success=1");
 });
 
+// ── Telegram Init: Generate token for bot login ─────────────────
+auth.post("/telegram-init", async (c) => {
+  const token = createTelegramAuthToken(c.env.DB);
+
+  return c.json({
+    ok: true,
+    botUrl: `https://t.me/${c.env.TELEGRAM_BOT_USERNAME}?start=${token}`,
+  });
+});
+
+// ── Telegram Callback: Complete auth after bot interaction ──────
+auth.get("/telegram-callback", async (c) => {
+  const token = c.req.query("token");
+
+  if (!token) {
+    return c.html(errorPage("Ошибка авторизации", "Токен не указан."));
+  }
+
+  const authToken = findTelegramAuthToken(c.env.DB, token);
+
+  if (!authToken) {
+    return c.html(
+      errorPage("Токен не найден или истёк", "Попробуйте войти снова."),
+    );
+  }
+
+  if (authToken.used === 1) {
+    return c.html(
+      errorPage(
+        "Вы уже авторизованы",
+        "Если нужно войти заново, обновите страницу.",
+      ),
+    );
+  }
+
+  // Check expiration
+  if (new Date(authToken.expires_at) < new Date()) {
+    return c.html(errorPage("Ссылка истекла", "Попробуйте войти снова."));
+  }
+
+  if (!authToken.user_telegram_id) {
+    // User hasn't pressed Start in the bot yet — show waiting page with auto-reload
+    return c.html(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ожидание авторизации · DV Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-ink-50 text-ink-800 min-h-screen flex items-center justify-center">
+  <div class="text-center p-8">
+    <div class="text-4xl mb-4"><i class="fas fa-hourglass-half text-accent-500"></i></div>
+    <h2 class="text-xl font-semibold mb-2">Ожидание авторизации</h2>
+    <p class="text-ink-400 mb-4">Пожалуйста, откройте бота и нажмите <strong>Start</strong>.</p>
+    <p class="text-ink-400 text-sm">Эта страница обновится автоматически.</p>
+    <div class="mt-6">
+      <i class="fas fa-circle-notch fa-spin text-accent-500 text-2xl"></i>
+    </div>
+    <a href="/" class="inline-block mt-6 text-sm text-ink-400 hover:text-ink-600 transition">Вернуться на главную</a>
+  </div>
+  <script>
+    setTimeout(() => window.location.reload(), 3000);
+  </script>
+</body>
+</html>`);
+  }
+
+  // Token is valid and has telegram ID — create user and session
+  const user = await findOrCreateUser(c.env.DB, {
+    telegram_id: authToken.user_telegram_id,
+    name: `User ${authToken.user_telegram_id.slice(-4)}`,
+  });
+
+  await createSession(c, user.id);
+  markTelegramAuthTokenUsed(c.env.DB, token);
+
+  // Redirect to dashboard
+  return c.redirect("/");
+});
+
 // ── Выход ───────────────────────────────────────
 auth.post("/logout", async (c) => {
   const sessionId = getCookie(c, "session");
@@ -166,3 +255,30 @@ auth.post("/logout", async (c) => {
 });
 
 export default auth;
+
+// ── Helpers ───────────────────────────────────────────────────
+
+function errorPage(title: string, message: string): string {
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} · DV Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-ink-50 text-ink-800 min-h-screen flex items-center justify-center">
+  <div class="text-center p-8">
+    <div class="text-4xl mb-4"><i class="fas fa-exclamation-circle text-red-400"></i></div>
+    <h2 class="text-xl font-semibold mb-2">${title}</h2>
+    <p class="text-ink-400 mb-6">${message}</p>
+    <a href="/" class="inline-block bg-ink-800 hover:bg-ink-900 text-white px-6 py-2 rounded-lg text-sm font-medium transition">Вернуться на главную</a>
+  </div>
+</body>
+</html>`;
+}

@@ -13,6 +13,7 @@ import dotenv from "dotenv";
 import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createApp } from "./index";
+import { cleanupExpiredTelegramTokens } from "./lib/auth";
 
 // Load .env from project root
 dotenv.config();
@@ -30,11 +31,18 @@ const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
+// Clean up expired telegram tokens on startup
+cleanupExpiredTelegramTokens(db);
+
+// Periodic cleanup every hour
+setInterval(() => cleanupExpiredTelegramTokens(db), 60 * 60 * 1000);
+
 // ── Create app with env ───────────────────────────────────────
 const app = createApp({
   DB: db,
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
   TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME || "",
+  TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || "",
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "",
 });
@@ -63,6 +71,7 @@ serve(
         DB: db,
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME || "",
+        TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || "",
         RESEND_API_KEY: process.env.RESEND_API_KEY || "",
         RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "",
       }),

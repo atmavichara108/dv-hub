@@ -32,6 +32,7 @@ export type Env = {
     DB: Database;
     TELEGRAM_BOT_TOKEN: string;
     TELEGRAM_BOT_USERNAME: string;
+    TELEGRAM_WEBHOOK_SECRET: string;
     RESEND_API_KEY: string;
     RESEND_FROM_EMAIL: string;
   };
@@ -308,6 +309,85 @@ export async function authMiddleware(c: Context<Env>, next: Next) {
   } as Env["Variables"]["user"]);
 
   await next();
+}
+
+// ---------------------------------------------------------------------------
+//  Telegram Auth Token Management (webhook-based login flow)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a random token for the Telegram bot auth flow.
+ * Token is valid for 15 minutes.
+ */
+export function createTelegramAuthToken(db: Database): string {
+  const token =
+    crypto.randomUUID().replace(/-/g, "") +
+    crypto.randomUUID().replace(/-/g, "");
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+  db.prepare(
+    `INSERT INTO telegram_auth_tokens (token, expires_at) VALUES (?, ?)`,
+  ).run(token, expiresAt.toISOString());
+
+  return token;
+}
+
+/**
+ * Look up a telegram auth token by its value.
+ * Returns null if not found.
+ */
+export function findTelegramAuthToken(
+  db: Database,
+  token: string,
+): {
+  token: string;
+  user_telegram_id: string | null;
+  expires_at: string;
+  used: number;
+} | null {
+  return db
+    .prepare(
+      `SELECT token, user_telegram_id, expires_at, used
+       FROM telegram_auth_tokens WHERE token = ?`,
+    )
+    .get(token) as {
+    token: string;
+    user_telegram_id: string | null;
+    expires_at: string;
+    used: number;
+  } | null;
+}
+
+/**
+ * Bind a telegram user ID to an existing auth token (called from webhook).
+ */
+export function updateTelegramAuthToken(
+  db: Database,
+  token: string,
+  userTelegramId: string,
+): void {
+  db.prepare(
+    `UPDATE telegram_auth_tokens SET user_telegram_id = ? WHERE token = ?`,
+  ).run(userTelegramId, token);
+}
+
+/**
+ * Mark a token as used so it cannot be reused.
+ */
+export function markTelegramAuthTokenUsed(db: Database, token: string): void {
+  db.prepare(`UPDATE telegram_auth_tokens SET used = 1 WHERE token = ?`).run(
+    token,
+  );
+}
+
+/**
+ * Delete expired or already-used tokens (periodic cleanup).
+ */
+export function cleanupExpiredTelegramTokens(db: Database): void {
+  db.prepare(
+    `DELETE FROM telegram_auth_tokens
+     WHERE expires_at < datetime('now') OR used = 1`,
+  ).run();
 }
 
 // ---------------------------------------------------------------------------

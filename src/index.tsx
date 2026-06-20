@@ -10,6 +10,7 @@ import { cors } from "hono/cors";
 import type { Env } from "./lib/auth";
 import api from "./routes/api";
 import auth from "./routes/auth";
+import webhook from "./routes/webhook";
 
 type AppBindings = Env["Bindings"];
 
@@ -21,6 +22,7 @@ export function createApp(env: AppBindings): Hono<Env> {
   // Подключаем роуты
   app.route("/auth", auth);
   app.route("/api", api);
+  app.route("/webhook", webhook);
 
   // ── HTML SHELL ────────────────────────────────────────────────
   const html = (
@@ -153,6 +155,7 @@ export default createApp({
   DB: null as never,
   TELEGRAM_BOT_TOKEN: "",
   TELEGRAM_BOT_USERNAME: "",
+  TELEGRAM_WEBHOOK_SECRET: "",
   RESEND_API_KEY: "",
   RESEND_FROM_EMAIL: "",
 });

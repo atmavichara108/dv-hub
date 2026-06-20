@@ -63,12 +63,14 @@ function showLoginModal() {
     <!-- Telegram Login -->
     <div class="mb-6">
       <p class="text-xs text-ink-500 mb-3 font-medium">Через Telegram</p>
-      <div id="telegram-login-container">
-        ${botUsername
-          ? `<div id="tg-widget-target"></div>`
-          : `<p class="text-xs text-ink-400">Telegram вход не настроен</p>`
-        }
-      </div>
+      ${botUsername
+        ? `<button id="telegram-login-btn" class="w-full bg-[#2AABEE] hover:bg-[#229ED9] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+            <i class="fab fa-telegram-plane"></i>
+            <span>Войти через Telegram</span>
+           </button>
+           <div id="telegram-login-status" class="mt-2"></div>`
+        : `<p class="text-xs text-ink-400">Telegram вход не настроен</p>`
+      }
     </div>
 
     <div class="flex items-center gap-3 mb-6">
@@ -95,36 +97,45 @@ function showLoginModal() {
     </div>
   </div>`)
 
-  // Инициализируем Telegram Widget
-  if (botUsername) {
-    setTimeout(() => {
-      const container = document.getElementById('tg-widget-target')
-      if (container) {
-        // Telegram Widget вызовет эту глобальную функцию при успешном входе
-        window.onTelegramAuth = async function(tgUser) {
-          try {
-            const r = await axios.post('/auth/telegram', tgUser)
-            currentUser = r.data.user
-            closeModal()
-            renderAuthNav()
-            toast('Вы вошли как ' + currentUser.name)
-            navigate(location.pathname, false)  // перерисовать текущую страницу
-          } catch (e) {
-            toast('Ошибка входа через Telegram', 'error')
-          }
-        }
+  // Telegram login button — webhook-based flow
+  const tgBtn = document.getElementById('telegram-login-btn')
+  if (tgBtn) {
+    tgBtn.addEventListener('click', async () => {
+      const status = document.getElementById('telegram-login-status')
+      status.innerHTML = '<p class="text-xs text-ink-400"><i class="fas fa-circle-notch fa-spin mr-1"></i>Генерируем ссылку...</p>'
 
-        const script = document.createElement('script')
-        script.async = true
-        script.src = `/static/telegram-widget.js`
-        script.setAttribute('data-telegram-login', botUsername)
-        script.setAttribute('data-size', 'large')
-        script.setAttribute('data-radius', '8')
-        script.setAttribute('data-onauth', 'onTelegramAuth(user)')
-        script.setAttribute('data-request-access', 'write')
-        container.appendChild(script)
+      try {
+        const r = await axios.post('/auth/telegram-init')
+        const { botUrl } = r.data
+
+        status.innerHTML = '<p class="text-xs text-accent-600"><i class="fas fa-check mr-1"></i>Откройте бота и нажмите Start</p>'
+
+        // Open Telegram bot in new window
+        window.open(botUrl, '_blank')
+
+        // Poll for auth completion
+        const pollInterval = setInterval(async () => {
+          try {
+            const checkR = await axios.get('/auth/me')
+            if (checkR.data.user) {
+              clearInterval(pollInterval)
+              currentUser = checkR.data.user
+              closeModal()
+              renderAuthNav()
+              toast('Вы вошли как ' + currentUser.name)
+              navigate(location.pathname, false)
+            }
+          } catch { /* ignore — not yet authed */ }
+        }, 2000)
+
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000)
+
+      } catch (e) {
+        const msg = e.response?.data?.error || 'Ошибка инициализации'
+        status.innerHTML = `<p class="text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>${msg}</p>`
       }
-    }, 100)
+    })
   }
 
   // Email форма
