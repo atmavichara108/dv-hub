@@ -125,6 +125,7 @@ export function createApp(env: AppBindings): Hono<Env> {
 <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/locale/ru.min.js"></script>
+<script src="/static/telegram-auth.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>`;

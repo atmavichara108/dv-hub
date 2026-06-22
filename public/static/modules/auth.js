@@ -101,51 +101,17 @@ function showLoginModal() {
   const tgBtn = document.getElementById('telegram-login-btn')
   if (tgBtn) {
     tgBtn.addEventListener('click', async () => {
-      // Open popup synchronously (avoids popup blocker)
-      const popup = window.open('about:blank', '_blank')
-
       try {
         const r = await axios.post('/auth/telegram-init')
-        const { botUrl, botUsername, token } = r.data
+        const { botUsername, token } = r.data
 
-        if (popup) {
-          // Try tg:// protocol first (opens Telegram app directly, works in Russia)
-          const tgDeepLink = `tg://resolve?domain=${botUsername}&start=${token}`
-          popup.location.href = tgDeepLink
-
-          // Fallback to t.me after 2 seconds (if tg:// didn't work)
-          setTimeout(() => {
-            if (popup && !popup.closed) {
-              popup.location.href = botUrl
-            }
-          }, 2000)
+        // Call the helper function from telegram-auth.js
+        if (typeof window.openTelegramAuth === 'function') {
+          window.openTelegramAuth(botUsername, token)
+        } else {
+          toast('Ошибка: модуль авторизации не загружен', 'error')
         }
-
-        // Polling: check token status instead of /auth/me
-        const pollInterval = setInterval(async () => {
-          try {
-            const checkR = await axios.get(`/auth/telegram-status?token=${token}`)
-            if (checkR.data.ready) {
-              clearInterval(pollInterval)
-
-              // Create session in THIS browser
-              const completeR = await axios.post('/auth/telegram-complete', { token })
-              currentUser = completeR.data.user
-
-              if (popup && !popup.closed) popup.close()
-              closeModal()
-              renderAuthNav()
-              toast('Вы вошли как ' + currentUser.name)
-              navigate(location.pathname, false)
-            }
-          } catch { /* ignore — not yet authed */ }
-        }, 2000)
-
-        // Stop polling after 5 minutes
-        setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000)
-
       } catch (e) {
-        if (popup) popup.close()
         const msg = e.response?.data?.error?.message || e.response?.data?.error || 'Ошибка инициализации'
         toast(msg, 'error')
       }
