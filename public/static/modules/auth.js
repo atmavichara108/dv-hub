@@ -101,25 +101,38 @@ function showLoginModal() {
   const tgBtn = document.getElementById('telegram-login-btn')
   if (tgBtn) {
     tgBtn.addEventListener('click', async () => {
-      const status = document.getElementById('telegram-login-status')
-      status.innerHTML = '<p class="text-xs text-ink-400"><i class="fas fa-circle-notch fa-spin mr-1"></i>Генерируем ссылку...</p>'
+      // Open popup synchronously (avoids popup blocker)
+      const popup = window.open('about:blank', '_blank')
 
       try {
         const r = await axios.post('/auth/telegram-init')
-        const { botUrl } = r.data
+        const { botUrl, botUsername, token } = r.data
 
-        status.innerHTML = '<p class="text-xs text-accent-600"><i class="fas fa-check mr-1"></i>Откройте бота и нажмите Start</p>'
+        if (popup) {
+          // Try tg:// protocol first (opens Telegram app directly, works in Russia)
+          const tgDeepLink = `tg://resolve?domain=${botUsername}&start=${token}`
+          popup.location.href = tgDeepLink
 
-        // Open Telegram bot in new window
-        window.open(botUrl, '_blank')
+          // Fallback to t.me after 2 seconds (if tg:// didn't work)
+          setTimeout(() => {
+            if (popup && !popup.closed) {
+              popup.location.href = botUrl
+            }
+          }, 2000)
+        }
 
-        // Poll for auth completion
+        // Polling: check token status instead of /auth/me
         const pollInterval = setInterval(async () => {
           try {
-            const checkR = await axios.get('/auth/me')
-            if (checkR.data.user) {
+            const checkR = await axios.get(`/auth/telegram-status?token=${token}`)
+            if (checkR.data.ready) {
               clearInterval(pollInterval)
-              currentUser = checkR.data.user
+
+              // Create session in THIS browser
+              const completeR = await axios.post('/auth/telegram-complete', { token })
+              currentUser = completeR.data.user
+
+              if (popup && !popup.closed) popup.close()
               closeModal()
               renderAuthNav()
               toast('Вы вошли как ' + currentUser.name)
@@ -132,8 +145,9 @@ function showLoginModal() {
         setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000)
 
       } catch (e) {
-        const msg = e.response?.data?.error || 'Ошибка инициализации'
-        status.innerHTML = `<p class="text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>${msg}</p>`
+        if (popup) popup.close()
+        const msg = e.response?.data?.error?.message || e.response?.data?.error || 'Ошибка инициализации'
+        toast(msg, 'error')
       }
     })
   }

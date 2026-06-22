@@ -11,9 +11,17 @@ const webhook = new Hono<Env>();
 
 // ── Telegram Webhook ──────────────────────────────────────────
 webhook.post("/telegram", async (c) => {
+  console.log("[webhook] Received update");
+
   // Verify webhook secret token (set via setWebhook)
   const secretToken = c.req.header("X-Telegram-Bot-Api-Secret-Token");
+  console.log(
+    "[webhook] Secret match:",
+    secretToken === c.env.TELEGRAM_WEBHOOK_SECRET,
+  );
+
   if (secretToken !== c.env.TELEGRAM_WEBHOOK_SECRET) {
+    console.log("[webhook] Invalid secret token");
     return c.json({ error: "Invalid secret token" }, 403);
   }
 
@@ -21,64 +29,89 @@ webhook.post("/telegram", async (c) => {
   let body: Record<string, unknown>;
   try {
     body = (await c.req.json()) as Record<string, unknown>;
+    console.log("[webhook] Body:", JSON.stringify(body, null, 2));
   } catch {
+    console.log("[webhook] Failed to parse body");
     return c.json({ ok: true });
   }
 
   const message = body.message as
-    | { text?: string; from?: { id: number } }
+    | {
+        text?: string;
+        from?: { id: number; first_name?: string; last_name?: string };
+      }
     | undefined;
+
+  console.log("[webhook] Message text:", message?.text);
 
   // Handle /start <token> command
   if (message?.text?.startsWith("/start ")) {
-    if (!message.from) return c.json({ ok: true });
+    if (!message.from) {
+      console.log("[webhook] No message.from");
+      return c.json({ ok: true });
+    }
+
     const token = message.text.split(" ")[1];
+    console.log("[webhook] Token from /start:", token);
+
     const telegramId = String(message.from.id);
+    const firstName = message.from.first_name || "";
+    const lastName = message.from.last_name || "";
+    const fullName =
+      `${firstName} ${lastName}`.trim() || `User ${telegramId.slice(-4)}`;
+    console.log("[webhook] Telegram ID:", telegramId, "Name:", fullName);
 
     const authToken = findTelegramAuthToken(c.env.DB, token);
+    console.log("[webhook] Token found:", !!authToken);
 
     if (!authToken) {
+      console.log("[webhook] Token not found in DB");
       await sendTelegramMessage(
         c.env.TELEGRAM_BOT_TOKEN,
         telegramId,
-        "❌ Ссылка недействительна или истекла. Попробуйте войти снова.",
+        "Ссылка недействительна или истекла. Попробуйте войти снова.",
       );
       return c.json({ ok: true });
     }
 
     if (authToken.used === 1) {
+      console.log("[webhook] Token already used");
       await sendTelegramMessage(
         c.env.TELEGRAM_BOT_TOKEN,
         telegramId,
-        "✅ Вы уже авторизованы. Если нужно войти заново, обновите страницу.",
+        "Вы уже авторизованы.",
       );
       return c.json({ ok: true });
     }
 
     // Check if token is expired
     if (new Date(authToken.expires_at) < new Date()) {
+      console.log("[webhook] Token expired");
       await sendTelegramMessage(
         c.env.TELEGRAM_BOT_TOKEN,
         telegramId,
-        "❌ Ссылка истекла. Попробуйте войти снова.",
+        "Ссылка истекла. Попробуйте войти снова.",
       );
       return c.json({ ok: true });
     }
 
-    // Bind telegram ID to token
-    updateTelegramAuthToken(c.env.DB, token, telegramId);
+    // Bind telegram ID and name to token
+    updateTelegramAuthToken(c.env.DB, token, telegramId, fullName);
+    console.log("[webhook] Token updated with telegram_id and name");
 
     // Build auth callback URL
     const authUrl = `https://re-search.wiki/auth/telegram-callback?token=${token}`;
+    console.log("[webhook] Sending inline button:", authUrl);
 
     // Send inline keyboard with auth button
     await sendTelegramMessageWithButton(
       c.env.TELEGRAM_BOT_TOKEN,
       telegramId,
-      "🔐 Нажмите кнопку ниже чтобы авторизоваться на сайте:",
+      "Нажмите кнопку ниже чтобы авторизоваться на сайте:",
       "Войти в DV Hub",
       authUrl,
     );
+    console.log("[webhook] Inline button sent");
 
     return c.json({ ok: true });
   }

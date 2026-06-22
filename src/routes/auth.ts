@@ -165,6 +165,45 @@ auth.post("/telegram-init", async (c) => {
   return c.json({
     ok: true,
     botUrl: `https://t.me/${c.env.TELEGRAM_BOT_USERNAME}?start=${token}`,
+    botUsername: c.env.TELEGRAM_BOT_USERNAME,
+    token,
+  });
+});
+
+// ── Telegram Status: Check if token is bound to a Telegram user ──
+auth.get("/telegram-status", async (c) => {
+  const token = c.req.query("token");
+  if (!token) return c.json({ ready: false });
+
+  const authToken = findTelegramAuthToken(c.env.DB, token);
+  if (!authToken || authToken.used === 1) return c.json({ ready: false });
+
+  // Token is bound to telegram_id but not yet used
+  const ready = !!authToken.user_telegram_id;
+  return c.json({ ready });
+});
+
+// ── Telegram Complete: Create session in current browser ─────────
+auth.post("/telegram-complete", async (c) => {
+  const { token } = (await c.req.json()) as { token: string };
+
+  const authToken = findTelegramAuthToken(c.env.DB, token);
+  if (!authToken || !authToken.user_telegram_id || authToken.used === 1) {
+    return c.json({ error: "Invalid or expired token" }, 400);
+  }
+
+  // Create user and session in current browser
+  const user = await findOrCreateUser(c.env.DB, {
+    telegram_id: authToken.user_telegram_id,
+    name: authToken.user_name || `User ${authToken.user_telegram_id.slice(-4)}`,
+  });
+
+  await createSession(c, user.id);
+  markTelegramAuthTokenUsed(c.env.DB, token);
+
+  return c.json({
+    ok: true,
+    user: { id: user.id, name: user.name, role: user.role },
   });
 });
 
@@ -234,7 +273,7 @@ auth.get("/telegram-callback", async (c) => {
   // Token is valid and has telegram ID — create user and session
   const user = await findOrCreateUser(c.env.DB, {
     telegram_id: authToken.user_telegram_id,
-    name: `User ${authToken.user_telegram_id.slice(-4)}`,
+    name: authToken.user_name || `User ${authToken.user_telegram_id.slice(-4)}`,
   });
 
   await createSession(c, user.id);

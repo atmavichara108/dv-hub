@@ -342,17 +342,19 @@ export function findTelegramAuthToken(
 ): {
   token: string;
   user_telegram_id: string | null;
+  user_name: string | null;
   expires_at: string;
   used: number;
 } | null {
   return db
     .prepare(
-      `SELECT token, user_telegram_id, expires_at, used
+      `SELECT token, user_telegram_id, user_name, expires_at, used
        FROM telegram_auth_tokens WHERE token = ?`,
     )
     .get(token) as {
     token: string;
     user_telegram_id: string | null;
+    user_name: string | null;
     expires_at: string;
     used: number;
   } | null;
@@ -365,10 +367,11 @@ export function updateTelegramAuthToken(
   db: Database,
   token: string,
   userTelegramId: string,
+  userName?: string,
 ): void {
   db.prepare(
-    `UPDATE telegram_auth_tokens SET user_telegram_id = ? WHERE token = ?`,
-  ).run(userTelegramId, token);
+    `UPDATE telegram_auth_tokens SET user_telegram_id = ?, user_name = ? WHERE token = ?`,
+  ).run(userTelegramId, userName || null, token);
 }
 
 /**
