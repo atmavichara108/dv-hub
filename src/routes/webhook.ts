@@ -15,10 +15,6 @@ webhook.post("/telegram", async (c) => {
 
   // Verify webhook secret token (set via setWebhook)
   const secretToken = c.req.header("X-Telegram-Bot-Api-Secret-Token");
-  console.log(
-    "[webhook] Secret match:",
-    secretToken === c.env.TELEGRAM_WEBHOOK_SECRET,
-  );
 
   if (secretToken !== c.env.TELEGRAM_WEBHOOK_SECRET) {
     console.log("[webhook] Invalid secret token");
@@ -29,7 +25,7 @@ webhook.post("/telegram", async (c) => {
   let body: Record<string, unknown>;
   try {
     body = (await c.req.json()) as Record<string, unknown>;
-    console.log("[webhook] Body:", JSON.stringify(body, null, 2));
+    console.log("[webhook] Body received");
   } catch {
     console.log("[webhook] Failed to parse body");
     return c.json({ ok: true });
@@ -42,7 +38,7 @@ webhook.post("/telegram", async (c) => {
       }
     | undefined;
 
-  console.log("[webhook] Message text:", message?.text);
+  console.log("[webhook] Message received");
 
   // Handle /start <token> command
   if (message?.text?.startsWith("/start ")) {
@@ -52,14 +48,14 @@ webhook.post("/telegram", async (c) => {
     }
 
     const token = message.text.split(" ")[1];
-    console.log("[webhook] Token from /start:", token);
+    console.log("[webhook] Token from /start");
 
     const telegramId = String(message.from.id);
     const firstName = message.from.first_name || "";
     const lastName = message.from.last_name || "";
     const fullName =
       `${firstName} ${lastName}`.trim() || `User ${telegramId.slice(-4)}`;
-    console.log("[webhook] Telegram ID:", telegramId, "Name:", fullName);
+    console.log("[webhook] Telegram user bound");
 
     const authToken = findTelegramAuthToken(c.env.DB, token);
     console.log("[webhook] Token found:", !!authToken);
@@ -99,8 +95,9 @@ webhook.post("/telegram", async (c) => {
     updateTelegramAuthToken(c.env.DB, token, telegramId, fullName);
     console.log("[webhook] Token updated with telegram_id and name");
 
-    // Build auth callback URL
-    const authUrl = `https://re-search.wiki/auth/telegram-callback?token=${token}`;
+    // Build auth callback URL using the host header (avoids hardcoded domain)
+    const host = c.req.header("host") || "re-search.wiki";
+    const authUrl = `https://${host}/auth/telegram-callback?token=${token}`;
     console.log("[webhook] Sending inline button:", authUrl);
 
     // Send inline keyboard with auth button
