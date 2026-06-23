@@ -151,12 +151,4 @@ export function createApp(env: AppBindings): Hono<Env> {
   return app;
 }
 
-// Default export for backward compatibility (not used in Node.js mode)
-export default createApp({
-  DB: null as never,
-  TELEGRAM_BOT_TOKEN: "",
-  TELEGRAM_BOT_USERNAME: "",
-  TELEGRAM_WEBHOOK_SECRET: "",
-  RESEND_API_KEY: "",
-  RESEND_FROM_EMAIL: "",
-});
+
