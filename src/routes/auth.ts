@@ -178,7 +178,11 @@ auth.get("/telegram-status", async (c) => {
   const authToken = findTelegramAuthToken(c.env.DB, token);
   if (!authToken || authToken.used === 1) return c.json({ ready: false });
 
-  // Token is bound to telegram_id but not yet used
+  // Check expiration
+  if (new Date(authToken.expires_at) < new Date()) {
+    return c.json({ ready: false });
+  }
+
   const ready = !!authToken.user_telegram_id;
   return c.json({ ready });
 });
@@ -192,6 +196,11 @@ auth.post("/telegram-complete", async (c) => {
     return c.json({ error: "Invalid or expired token" }, 400);
   }
 
+  // Check expiration
+  if (new Date(authToken.expires_at) < new Date()) {
+    return c.json({ error: "Token expired" }, 400);
+  }
+
   // Create user and session in current browser
   const user = await findOrCreateUser(c.env.DB, {
     telegram_id: authToken.user_telegram_id,
@@ -199,7 +208,12 @@ auth.post("/telegram-complete", async (c) => {
   });
 
   await createSession(c, user.id);
-  markTelegramAuthTokenUsed(c.env.DB, token);
+
+  // Atomic mark-as-used: returns 0 if already used (race condition guard)
+  const changes = markTelegramAuthTokenUsed(c.env.DB, token);
+  if (changes === 0) {
+    return c.json({ error: "Token already used" }, 400);
+  }
 
   return c.json({
     ok: true,
@@ -270,17 +284,24 @@ auth.get("/telegram-callback", async (c) => {
 </html>`);
   }
 
-  // Token is valid and has telegram ID — create user and session
-  const user = await findOrCreateUser(c.env.DB, {
-    telegram_id: authToken.user_telegram_id,
-    name: authToken.user_name || `User ${authToken.user_telegram_id.slice(-4)}`,
-  });
-
-  await createSession(c, user.id);
-  markTelegramAuthTokenUsed(c.env.DB, token);
-
-  // Redirect to dashboard
-  return c.redirect("/");
+  // Token is valid and has telegram ID — show success page.
+  // Session creation happens via polling in the original browser (telegram-complete).
+  return c.html(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Авторизация успешна · DV Hub</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 40px; }
+    h2 { color: #4d7c5b; }
+  </style>
+</head>
+<body>
+  <h2>✅ Авторизация успешна!</h2>
+  <p>Можете закрыть это окно и вернуться в браузер.</p>
+</body>
+</html>`);
 });
 
 // ── Выход ───────────────────────────────────────

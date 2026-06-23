@@ -97,20 +97,96 @@ function showLoginModal() {
     </div>
   </div>`)
 
-  // Telegram login button — webhook-based flow
+  // Telegram login button — webhook-based flow with copy-to-clipboard
   const tgBtn = document.getElementById('telegram-login-btn')
   if (tgBtn) {
     tgBtn.addEventListener('click', async () => {
       try {
         const r = await axios.post('/auth/telegram-init')
         const { botUsername, token } = r.data
+        sessionStorage.setItem('telegram_auth_token', token)
+        const botLink = `https://t.me/${botUsername}?start=${token}`
 
-        // Call the helper function from telegram-auth.js
-        if (typeof window.openTelegramAuth === 'function') {
-          window.openTelegramAuth(botUsername, token)
-        } else {
-          toast('Ошибка: модуль авторизации не загружен', 'error')
+        // Replace the modal content with step-by-step instructions
+        const modalBody = document.querySelector('.modal-body') || document.querySelector('[data-modal-content]')
+        const statusEl = document.getElementById('telegram-login-status')
+
+        // Update the status area with copy UI
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <div class="mt-4 space-y-3">
+              <div>
+                <p class="text-xs text-ink-500 mb-1">1. Откройте Telegram и найдите бота:</p>
+                <div class="bg-ink-100 rounded-lg px-3 py-2 font-mono text-sm">@${botUsername}</div>
+              </div>
+              <div>
+                <p class="text-xs text-ink-500 mb-1">2. Скопируйте ссылку и вставьте в чат с ботом:</p>
+                <div class="flex gap-2">
+                  <input type="text" value="${botLink}" readonly
+                    class="flex-1 bg-ink-100 rounded-lg px-3 py-2 font-mono text-xs border border-ink-200"
+                    onclick="this.select()" />
+                  <button id="tg-copy-btn" class="bg-ink-200 hover:bg-ink-300 text-ink-800 px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap">
+                    Копировать
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-ink-500">3. После отправки ссылки авторизация завершится автоматически.</p>
+              </div>
+              <div id="tg-poll-status" class="text-center pt-2">
+                <p class="text-xs text-ink-400"><i class="fas fa-circle-notch fa-spin mr-1"></i>Ожидание авторизации...</p>
+              </div>
+            </div>
+          `
+
+          // Wire up copy button
+          const copyBtn = document.getElementById('tg-copy-btn')
+          if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+              try {
+                await navigator.clipboard.writeText(botLink)
+                copyBtn.textContent = 'Скопировано!'
+                copyBtn.classList.add('bg-accent-500', 'text-white')
+                setTimeout(() => {
+                  copyBtn.textContent = 'Копировать'
+                  copyBtn.classList.remove('bg-accent-500', 'text-white')
+                }, 2000)
+              } catch {
+                // Fallback: select the input
+                const input = copyBtn.previousElementSibling
+                if (input) { input.select(); document.execCommand('copy') }
+              }
+            })
+          }
         }
+
+        // Also try to copy to clipboard immediately
+        try { await navigator.clipboard.writeText(botLink) } catch {}
+
+        // Start polling via shared helper
+        window.startTelegramPolling(token, {
+          onSuccess: async () => {
+            sessionStorage.removeItem('telegram_auth_token')
+            try {
+              const completeR = await axios.post('/auth/telegram-complete', { token })
+              currentUser = completeR.data.user
+              closeModal()
+              renderAuthNav()
+              toast('Вы вошли как ' + currentUser.name)
+              navigate(location.pathname, false)
+            } catch {
+              toast('Ошибка завершения авторизации', 'error')
+            }
+          },
+          onTimeout: () => {
+            sessionStorage.removeItem('telegram_auth_token')
+            const pollStatus = document.getElementById('tg-poll-status')
+            if (pollStatus) {
+              pollStatus.innerHTML = '<p class="text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>Время истекло. Попробуйте снова.</p>'
+            }
+          }
+        })
+
       } catch (e) {
         const msg = e.response?.data?.error?.message || e.response?.data?.error || 'Ошибка инициализации'
         toast(msg, 'error')
@@ -136,6 +212,29 @@ function showLoginModal() {
       status.innerHTML = `<p class="text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>${msg}</p>`
     }
   })
+
+  // Restore polling after page reload (e.g. returning from Telegram)
+  const savedToken = sessionStorage.getItem('telegram_auth_token')
+  if (savedToken) {
+    window.startTelegramPolling(savedToken, {
+      onSuccess: async () => {
+        sessionStorage.removeItem('telegram_auth_token')
+        try {
+          const completeR = await axios.post('/auth/telegram-complete', { token: savedToken })
+          currentUser = completeR.data.user
+          closeModal()
+          renderAuthNav()
+          toast('Вы вошли как ' + currentUser.name)
+          navigate(location.pathname, false)
+        } catch {
+          toast('Ошибка завершения авторизации', 'error')
+        }
+      },
+      onTimeout: () => {
+        sessionStorage.removeItem('telegram_auth_token')
+      }
+    })
+  }
 }
 
 // Выход

@@ -376,11 +376,15 @@ export function updateTelegramAuthToken(
 
 /**
  * Mark a token as used so it cannot be reused.
+ * Returns the number of rows changed (0 if already used or not found).
  */
-export function markTelegramAuthTokenUsed(db: Database, token: string): void {
-  db.prepare(`UPDATE telegram_auth_tokens SET used = 1 WHERE token = ?`).run(
-    token,
-  );
+export function markTelegramAuthTokenUsed(db: Database, token: string): number {
+  const result = db
+    .prepare(
+      `UPDATE telegram_auth_tokens SET used = 1 WHERE token = ? AND used = 0`,
+    )
+    .run(token);
+  return result.changes;
 }
 
 /**
