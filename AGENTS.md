@@ -99,6 +99,7 @@ context/ # git submodule на dv-project (vault движения)
 ## Communication
 
 - Всегда отвечай на русском в диалогах с пользователем.
+- Thought/reasoning (внутренние рассуждения) — на русском.
 - Код, имена переменных, commit messages — на английском.
 - Commit format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `task(DV-XXX):` для задач.
 
