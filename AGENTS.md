@@ -129,3 +129,16 @@ context/ # git submodule на dv-project (vault движения)
 
 Этот шорткат делает: коммит в submodule → push в submodule → bump в dv-hub → push в dv-hub. Не пиши git-команды вручную.
 
+## Делегация и зоны ответственности
+
+plan делегирует задачи через task tool. У plan по конфигурации нет прав на edit/bash — это намеренно, чтобы plan занимался только планированием. Когда пользователь подтверждает план — plan СРАЗУ вызывает task tool, без рассуждений о правах.
+
+Зоны ответственности (детали в .opencode/agents/*.md):
+- plan:       docs/architecture.md (ADR), docs/product-vision.md, docs/roadmap.md, спеки задач
+- build:      src/**, migrations/**, tests/**, package.json
+- infra:      docs/infra-runbook.md, scripts/deploy/**, server configs
+- researcher: docs/research/** (только пишет отчёты)
+- reviewer:   ничего не редактирует, только читает и комментирует
+
+Спеки задач хранятся в context/DV/Operations/Specs/DV-XXX-spec.md (создаёт plan, читают build/infra).
+

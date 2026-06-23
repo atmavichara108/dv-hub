@@ -1,6 +1,6 @@
-
 {
   "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/deepseek-v4-flash",
   "lsp": true,
   "instructions": [
     "docs/product-vision.md",
@@ -9,8 +9,6 @@
     "docs/roadmap.md",
     "docs/infra-runbook.md",
     "context/DV/Movement/DV Foundation.md",
-    "context/DV/Movement/Manifesto.md",
-    "context/DV/Movement/Principles.md",
     "context/DV/Structure/**/*.md",
     "context/DV/Site/**/*.md",
     "context/DV/Research/Research Workflow.md",
@@ -59,6 +57,75 @@
       "sudo *": "deny"
     },
     "webfetch": "allow"
+  },
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "steps": 15,
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "task": { "*": "allow" }
+      }
+    },
+    "build": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "steps": 30,
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "task": { "*": "allow" }
+      }
+    },
+    "reviewer": {
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro",
+      "temperature": 0.1,
+      "steps": 15,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "grep*": "allow",
+          "cat*": "allow",
+          "ls*": "allow"
+        }
+      }
+    },
+    "researcher": {
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.3,
+      "steps": 20,
+      "permission": {
+        "edit": "deny",
+        "bash": { "*": "deny" },
+        "webfetch": "allow"
+      }
+    },
+    "infra": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "steps": 30,
+      "permission": {
+        "edit": "ask",
+        "bash": {
+          "*": "ask",
+          "ls*": "allow",
+          "cat docs/infra-runbook.md": "allow",
+          "git diff*": "allow",
+          "ssh *": "deny"
+        },
+        "webfetch": "allow"
+      }
+    }
   },
   "mcp": {
     "github": {
