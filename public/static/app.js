@@ -25,7 +25,16 @@ const modules = [
       const s = document.createElement('script')
       s.src = src
       s.onload = resolve
-      s.onerror = () => reject(new Error('Failed to load ' + src))
+      s.onerror = () => {
+        const errMsg = 'Failed to load ' + src
+        console.error(errMsg)
+        document.getElementById('app').innerHTML = `
+          <div class="text-center py-16 fade-in">
+            <i class="fas fa-exclamation-triangle text-4xl text-rust-400 mb-4 block"></i>
+            <p class="text-ink-500">Ошибка загрузки модуля. Попробуйте обновить страницу.</p>
+          </div>`
+        reject(new Error(errMsg))
+      }
       document.body.appendChild(s)
     })
   }
