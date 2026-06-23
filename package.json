@@ -7,7 +7,6 @@
     "build": "vite build",
     "build:server": "vite build",
     "start": "node dist/server.js",
-    "dev:node": "tsx watch src/server.ts",
     "dev:cf": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
     "deploy:cf": "npm run build && wrangler pages deploy dist --project-name dv-hub",
     "deploy:vps": "bash scripts/deploy-vps.sh",
@@ -19,7 +18,7 @@
     "context:log": "cd context && git log --oneline -10 && cd ..",
     "db:init": "node scripts/init-db.js",
     "db:migrate:local": "node scripts/init-db.js",
-    "db:seed": "echo 'TODO: seed script for better-sqlite3' && exit 1",
+    "db:seed": "node scripts/seed.js",
     "db:reset": "rm -f data/dv-hub.db data/dv-hub.db-wal data/dv-hub.db-shm && npm run db:init",
     "lint": "eslint . --ext .ts",
     "test": "jest",
@@ -48,7 +47,7 @@
     "ts-jest": "^29.1.2",
     "tsx": "^4.22.4",
     "typescript": "^5.4.2",
-    "vite": "^6.3.5",
-    "wrangler": "^4.4.0"
+    "vite": "^6.3.5"
+
   }
 }
