@@ -710,20 +710,75 @@ curl -I https://re-search.wiki
 - SQLite файл: `/opt/dv-hub/data/dv-hub.db`
 - `.env` файлы: `/opt/dv-hub/.env`, `/opt/mirotalksfu/.env`
 - Nginx конфиги: `/etc/nginx/sites-available/`
-- Загрузки: `/opt/dv-hub/uploads/` (до Twake Drive)
+- Загрузки: пока не бэкапим (до Twake Drive)
 
-### Метод
+### Скрипт
 
-TODO (DV-009): rsync на внешнее хранилище.
-Временный вариант на этапе MVP — ручной `tar` раз в неделю на локальный ноут.
+`/opt/dv-hub/scripts/backup.sh` — запускается cron'ом на VPS.
+
+Что делает скрипт:
+1. `sqlite3 .dump` → gzip → `dv-hub-db-{timestamp}.sql.gz`
+2. tar `.env` файлов → `dv-hub-env-{timestamp}.tar.gz`
+3. tar Nginx конфигов → `nginx-conf-{timestamp}.tar.gz`
+4. Объединение всего в `dv-hub-full-{timestamp}.tar.gz`
+5. rsync через Tailscale на локальный комп (если `TAILSCALE_IP` задан)
+6. Очистка старых локальных копий (хранить последние N, по умолчанию 4)
+
+Лог операций: `/opt/dv-hub/backups/backup.log`
 
 ### Расписание
 
-TODO: cron-задача после DV-009.
+Еженедельно, воскресенье 3:00 МСК:
+
+```
+0 3 * * 0 /opt/dv-hub/scripts/backup.sh
+```
+
+### Доставка на локальный комп
+
+Через Tailscale VPN:
+
+1. VPS и локальный комп в одной Tailscale сети
+2. Скрипт rsync'ит архив на `rudra@<tailscale-ip>:/mnt/backups/dv-hub/`
+3. Tailscale IP прописан в `/opt/dv-hub/.env` как `TAILSCALE_IP`
+4. Если локальный комп выключен — rsync падает с ошибкой, бэкап остаётся локально
+
+### Хранение
+
+- **Локально на VPS**: 4 последних полных бэкапа (`/opt/dv-hub/backups/`)
+- **На локальном компе**: все копии (`/mnt/backups/dv-hub/`), чистка руками
 
 ### Восстановление
 
-TODO: проверить как минимум один раз, что бэкап разворачивается.
+```bash
+# Забрать бэкап с локального компа (если VPS недоступен)
+rsync -avz rudra@<tailscale-ip>:/mnt/backups/dv-hub/dv-hub-full-2026-06-27_03-00-00.tar.gz /tmp/
+
+# Или использовать локальный бэкап на VPS
+ls /opt/dv-hub/backups/dv-hub-full-*.tar.gz
+
+# Запустить восстановление
+sudo bash /opt/dv-hub/scripts/restore-backup.sh /tmp/dv-hub-full-2026-06-27_03-00-00.tar.gz
+
+# Перезапустить приложение
+pm2 restart dvhub
+```
+
+### Журнал восстановлений
+
+| Дата | Бэкап | Причина | Кто |
+|------|-------|---------|-----|
+| — | — | — | — |
+
+### Post-setup checklist (после настройки Tailscale)
+
+- [ ] Tailscale установлен на VPS (`tailscale status`)
+- [ ] Tailscale установлен на локальном компе
+- [ ] SSH-ключ VPS добавлен в `~rudra/.ssh/authorized_keys` локального компа
+- [ ] `TAILSCALE_IP=...` добавлен в `/opt/dv-hub/.env`
+- [ ] Директория `/mnt/backups/dv-hub/` создана на локальном компе
+- [ ] Cron установлен (`crontab -e` → `0 3 * * 0 /opt/dv-hub/scripts/backup.sh`)
+- [ ] Ручной тест: запустить `bash /opt/dv-hub/scripts/backup.sh` — архив доезжает до локального компа
 
 ---
 
@@ -824,3 +879,4 @@ pm2 status
 | 2026-06-10 | DV-008: первый деплой dv-hub на VPS (Node.js 22 + PM2) | Max |
 | 2026-06-10 | DV-007: миграция БД с Cloudflare D1 на локальный SQLite | Max |
 | 2026-06-19 | DV-011: деплой MiroTalk SFU на meet.re-search.wiki | Max |
+| 2026-06-27 | DV-009: backup.sh, restore-backup.sh, раздел 6 runbook | Build Agent |
