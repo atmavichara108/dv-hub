@@ -1,19 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 // ADMIN — Управление пользователями
 // ─────────────────────────────────────────────────────────────
-// Доступ: admin и moderator.
-// Admin может менять роли всех, moderator — только guest/researcher/expert.
+// Доступ: только admin.
+// Admin может менять роли всех.
 
-const ALL_ROLES = ['admin', 'moderator', 'researcher', 'expert', 'guest', 'public']
-const ROLE_LABELS = { admin: 'Админ', moderator: 'Модератор', researcher: 'Исследователь', expert: 'Эксперт', guest: 'Гость', public: 'Публичный' }
-const ROLE_COLORS = { admin: 'bg-red-100 text-red-700', moderator: 'bg-purple-100 text-purple-700', researcher: 'bg-blue-100 text-blue-700', expert: 'bg-yellow-100 text-yellow-700', guest: 'bg-ink-100 text-ink-500', public: 'bg-ink-50 text-ink-400' }
+const ALL_ROLES = ['admin', 'member', 'guest']
+const ROLE_LABELS = { admin: 'Админ', member: 'Участник', guest: 'Гость' }
+const ROLE_COLORS = { admin: 'bg-red-100 text-red-700', member: 'bg-blue-100 text-blue-700', guest: 'bg-ink-100 text-ink-500' }
 
 async function renderAdmin() {
-  if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'moderator')) {
+  if (!currentUser || currentUser.role !== 'admin') {
     app().innerHTML = `
     <div class="text-center py-16">
       <i class="fas fa-lock text-4xl text-ink-300 mb-4 block"></i>
-      <p class="text-ink-500">Доступ только для администраторов и модераторов</p>
+      <p class="text-ink-500">Доступ только для администраторов</p>
       <a href="/" class="text-sm text-accent-500 hover:underline mt-2 inline-block">← На дашборд</a>
     </div>`
     return
@@ -88,7 +88,7 @@ async function renderAdmin() {
 }
 
 function changeUserRole(userId, currentRole, userName) {
-  const canAssign = currentUser.role === 'admin' ? ALL_ROLES : ['guest', 'researcher', 'expert']
+  const canAssign = currentUser.role === 'admin' ? ALL_ROLES : []
 
   openModal(`
   <div class="p-6">
@@ -110,11 +110,8 @@ function changeUserRole(userId, currentRole, userName) {
 function getRoleDescription(role) {
   const desc = {
     admin: 'Полный доступ ко всему',
-    moderator: 'Управление темами, комнатами, пользователями',
-    researcher: 'Создание материалов, работа с темами',
-    expert: 'Участие в дискуссиях',
-    guest: 'Ограниченный просмотр',
-    public: 'Только публичный контент'
+    member: 'Авторизованный участник ячейки',
+    guest: 'Ограниченный просмотр'
   }
   return desc[role] || ''
 }

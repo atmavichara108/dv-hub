@@ -31,7 +31,7 @@ async function renderMedia() {
               <span><i class="${PLATFORM_ICON[p.platform] || 'fas fa-link'} mr-1"></i>${p.platform}</span>
               <div class="flex items-center gap-2">
                 ${p.topic_title ? `<a href="/topics/${p.topic_id}" class="text-accent-500 hover:underline" onclick="event.stopPropagation()">→ тема</a>` : ''}
-                ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `<button onclick="event.preventDefault(); event.stopPropagation(); deletePublication(${p.id})" class="text-ink-300 hover:text-red-500 transition" title="Удалить"><i class="fas fa-trash text-xs"></i></button>` : ''}
+                ${currentUser && currentUser.role === 'admin' ? `<button onclick="event.preventDefault(); event.stopPropagation(); deletePublication(${p.id})" class="text-ink-300 hover:text-red-500 transition" title="Удалить"><i class="fas fa-trash text-xs"></i></button>` : ''}
               </div>
             </div>
           </div>

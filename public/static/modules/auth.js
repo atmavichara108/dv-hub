@@ -24,11 +24,12 @@ function renderAuthNav() {
 
   if (currentUser) {
     const roleColors = {
-      admin: 'bg-red-500', moderator: 'bg-purple-500', researcher: 'bg-blue-500',
-      expert: 'bg-yellow-500', guest: 'bg-ink-500', public: 'bg-ink-400'
+      admin: 'bg-red-500',
+      member: 'bg-blue-500',
+      guest: 'bg-ink-500'
     }
     const roleColor = roleColors[currentUser.role] || 'bg-ink-500'
-    const isAdmin = currentUser.role === 'admin' || currentUser.role === 'moderator'
+    const isAdmin = currentUser.role === 'admin'
     el.innerHTML = `
       <div class="flex items-center gap-2">
         ${isAdmin ? `<a href="/admin" class="text-ink-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-ink-700 transition" title="Админка"><i class="fas fa-cog"></i></a>` : ''}

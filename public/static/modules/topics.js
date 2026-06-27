@@ -316,7 +316,7 @@ async function renderTopicDetail(id) {
             Изменить
           </button>
 
-          ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `
+          ${currentUser && currentUser.role === 'admin' ? `
           <button onclick="deleteTopic(${t.id})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded border border-red-200 hover:border-red-400 transition">
             <i class="fas fa-trash"></i>
           </button>` : ''}

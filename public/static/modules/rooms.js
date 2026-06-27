@@ -8,8 +8,6 @@
 // материалы, блок диалектики (тезис/антитезис/синтез),
 // заметки по ходу, итоги, задачи после обсуждения.
 
-let jitsiApi = null
-
 async function renderRooms(filter = '') {
   app().innerHTML = `<div class="text-center py-12 text-ink-400"><i class="fas fa-circle-notch fa-spin text-2xl"></i></div>`
   const data = await get('/rooms' + (filter ? `?status=${filter}` : ''))
@@ -127,9 +125,9 @@ async function renderRoomDetail(id) {
   try { participants = JSON.parse(r.participants || '[]') } catch {}
   try { tasks = JSON.parse(r.tasks || '[]') } catch {}
 
-  // Jitsi room name: уникальный, привязанный к комнате
-  const jitsiRoom = `dv-hub-room-${id}`
-  const jitsiUrl = `https://meet.jit.si/${jitsiRoom}`
+  // MiroTalk room name: уникальный, привязанный к комнате
+  const mirotalkRoom = `dv-room-${id}`
+  const mirotalkUrl = `https://meet.re-search.wiki/join?room=${mirotalkRoom}`
 
   app().innerHTML = `
   <div class="fade-in">
@@ -141,7 +139,7 @@ async function renderRoomDetail(id) {
           Статус
         </button>
 
-        ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'moderator') ? `
+        ${currentUser && currentUser.role === 'admin' ? `
         <button onclick="deleteRoom(${r.id})" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded border border-red-200 hover:border-red-400 transition">
           <i class="fas fa-trash"></i>
         </button>` : ''}
@@ -192,19 +190,19 @@ async function renderRoomDetail(id) {
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 class="font-medium mb-1"><i class="fas fa-video mr-2 text-accent-400"></i>Видеозвонок</h2>
-          <p class="text-ink-300 text-xs">Jitsi Meet — групповой звонок, без регистрации</p>
+          <p class="text-ink-300 text-xs">MiroTalk — self-hosted видеозвонок, без регистрации</p>
         </div>
         <div class="flex gap-2">
-          <button onclick="copyToClipboard('${jitsiUrl}')" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Скопировать ссылку">
+          <button onclick="copyToClipboard('${mirotalkUrl}')" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Скопировать ссылку">
             <i class="fas fa-copy mr-1"></i>Ссылка
           </button>
-          <button id="jitsi-toggle-btn" onclick="toggleJitsi('${jitsiRoom}')" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
+          <button id="mirotalk-toggle-btn" onclick="toggleMiroTalk(${id}, '${encodeURIComponent(currentUser?.name || 'Гость')}')" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
             <i class="fas fa-phone-alt mr-1.5"></i>Начать звонок
           </button>
         </div>
       </div>
-      <div id="jitsi-container" class="mt-4 hidden">
-        <div id="jitsi-meet" class="w-full rounded-lg overflow-hidden" style="height: 520px;"></div>
+      <div id="mirotalk-container" class="mt-4 hidden">
+        <iframe id="mirotalk-iframe" src="" allow="camera; microphone; display-capture; fullscreen" style="height: 520px; width: 100%; border-radius: 8px; border: none;" allowfullscreen></iframe>
       </div>
     </div>
 
@@ -319,86 +317,31 @@ async function renderRoomDetail(id) {
 
 }
 
-// ── Jitsi Meet: встроенный звонок ─────────────────────────────
-// Jitsi IFrame API — официальный способ встраивать Jitsi в свой сайт.
-// Загружаем API-скрипт динамически, создаём iframe с настройками.
-// Передаём имя пользователя из currentUser, настраиваем интерфейс.
+// ── MiroTalk SFU: встроенный звонок ─────────────────────────
+// MiroTalk SFU на meet.re-search.wiki. Встраивается через iframe.
 
-function toggleJitsi(roomName) {
-  const container = document.getElementById('jitsi-container')
-  const btn = document.getElementById('jitsi-toggle-btn')
+function toggleMiroTalk(roomId, userName) {
+  const container = document.getElementById('mirotalk-container')
+  const btn = document.getElementById('mirotalk-toggle-btn')
 
-  if (jitsiApi) {
-    // Звонок активен — останавливаем
-    jitsiApi.dispose()  // уничтожает iframe и отключает от комнаты
-    jitsiApi = null
+  if (container.classList.contains('hidden')) {
+    // Запускаем звонок
+    const displayName = userName || 'Гость'
+    const iframe = document.getElementById('mirotalk-iframe')
+    iframe.src = `https://meet.re-search.wiki/join?room=dv-room-${roomId}&name=${displayName}`
+    container.classList.remove('hidden')
+    btn.innerHTML = '<i class="fas fa-phone-slash mr-1.5"></i>Завершить'
+    btn.classList.remove('bg-accent-500', 'hover:bg-accent-600')
+    btn.classList.add('bg-red-500', 'hover:bg-red-600')
+  } else {
+    // Завершаем звонок
+    const iframe = document.getElementById('mirotalk-iframe')
+    iframe.src = ''
     container.classList.add('hidden')
     btn.innerHTML = '<i class="fas fa-phone-alt mr-1.5"></i>Начать звонок'
     btn.classList.remove('bg-red-500', 'hover:bg-red-600')
     btn.classList.add('bg-accent-500', 'hover:bg-accent-600')
-    return
   }
-
-  // Запускаем звонок
-  container.classList.remove('hidden')
-  btn.innerHTML = '<i class="fas fa-phone-slash mr-1.5"></i>Завершить'
-  btn.classList.remove('bg-accent-500', 'hover:bg-accent-600')
-  btn.classList.add('bg-red-500', 'hover:bg-red-600')
-
-  // Загружаем Jitsi IFrame API если ещё не загружен
-  loadJitsiApi(() => {
-    const displayName = currentUser ? currentUser.name : 'Гость'
-    const avatarUrl = currentUser ? currentUser.avatar_url : ''
-
-    jitsiApi = new JitsiMeetExternalAPI('meet.jit.si', {
-      roomName: roomName,
-      parentNode: document.getElementById('jitsi-meet'),
-      width: '100%',
-      height: 520,
-      configOverrides: {
-        startWithAudioMuted: true,       // микрофон выключен при входе
-        startWithVideoMuted: false,      // камера включена
-        prejoinPageEnabled: false,        // пропускаем экран "готовы войти?"
-        disableDeepLinking: true,         // не предлагать установить приложение
-        defaultLanguage: 'ru',
-        toolbarButtons: [
-          'microphone', 'camera', 'desktop', 'fullscreen',
-          'chat', 'raisehand', 'participants-pane',
-          'tileview', 'settings', 'hangup'
-        ],
-      },
-      interfaceConfigOverrides: {
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
-        SHOW_BRAND_WATERMARK: false,
-        TOOLBAR_ALWAYS_VISIBLE: true,
-        DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
-        FILM_STRIP_MAX_HEIGHT: 120,
-      },
-      userInfo: {
-        displayName: displayName,
-        avatarURL: avatarUrl || undefined,
-      }
-    })
-
-    // Если участник нажал "повесить трубку" внутри Jitsi
-    jitsiApi.addListener('readyToClose', () => {
-      toggleJitsi(roomName)  // переключаем обратно в режим "начать"
-    })
-  })
-}
-
-// Загрузка Jitsi IFrame API скрипта (один раз)
-function loadJitsiApi(callback) {
-  if (window.JitsiMeetExternalAPI) {
-    callback()
-    return
-  }
-  const script = document.createElement('script')
-  script.src = 'https://meet.jit.si/external_api.js'
-  script.onload = callback
-  script.onerror = () => toast('Не удалось загрузить Jitsi', 'error')
-  document.head.appendChild(script)
 }
 
 // ── Вспомогательные функции комнат ────────────────────────────
@@ -547,7 +490,7 @@ function renderChatMessage(m) {
   const avatar = m.author_avatar
     ? `<img src="${m.author_avatar}" class="w-7 h-7 rounded-full flex-shrink-0">`
     : `<div class="w-7 h-7 rounded-full bg-accent-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">${(m.author_name || '?')[0].toUpperCase()}</div>`
-  const roleColor = { admin:'text-red-500', moderator:'text-purple-500', researcher:'text-blue-500', expert:'text-yellow-600' }
+  const roleColor = { admin:'text-red-500', member:'text-blue-500' }
   const roleBadge = roleColor[m.author_role] ? `<span class="${roleColor[m.author_role]} text-xs ml-1">${m.author_role}</span>` : ''
   const html = formatChatText(m.text)
   return `
