@@ -52,7 +52,7 @@ public/static/ app.js # Entry point, SPA router modules/*.js # Feature modules (
 migrations/ 0001_initial_schema.sql
 docs/ product-vision.md # Vision и anti-goals architecture.md # ADR glossary.md # Термины движения и платформы roadmap.md # Фазы infra-runbook.md # Операционный мануал (Phase 0+)
 .opencode/ agents/ # plan, build, reviewer, researcher, infra commands/ # custom slash-commands plugins/ # env-guard, notify
-context/ # git submodule на dv-project (vault движения)
+context/ # git submodule на dv-project — OKF v0.1 knowledge bundle (vault движения)
 ```
 
 ## Database Tables
@@ -129,6 +129,29 @@ context/ # git submodule на dv-project (vault движения)
 ```
 
 Этот шорткат делает: коммит в submodule → push в submodule → bump в dv-hub → push в dv-hub. Не пиши git-команды вручную.
+
+### OKF (Open Knowledge Format)
+
+Все документы в `context/` приведены к стандарту **OKF v0.1**. Каждый `.md`-файл содержит YAML frontmatter с обязательным полем `type`. Агент может понять тип документа до его открытия.
+
+Основные типы в волте:
+
+| type | Для чего |
+|------|----------|
+| `Movement Foundation` | Основание движения, принципы |
+| `Structure Pattern` | S3-паттерны (Consent, Lifecycle, Logbook) |
+| `Protocol` | Протоколы (Decision, Feedback, Rotation) |
+| `Role Definition` | Определения ролей |
+| `Template` | Шаблоны (Cell Passport, Agreement) |
+| `Task` | Задачи Kanban (DV-*) |
+| `Kanban Board` | Доска задач |
+| `Site Architecture` | Архитектура DV Hub |
+| `Feature Backlog` | Бэклог фич |
+| `Research Workflow` | Методология исследования |
+| `Research Topic` | Тема текущего исследования |
+| `Playbook` | Руководство к действию |
+
+Перед чтением документа из `context/` проверь его `type` через frontmatter. Если тип незнаком — обработай как generic markdown. Подробнее о формате: [OKF SPEC](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 
 ## Делегация и зоны ответственности
 

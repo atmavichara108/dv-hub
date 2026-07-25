@@ -72,7 +72,7 @@
     },
     "build": {
       "mode": "primary",
-      "model": "opencode-go/qwen3.7-max",
+      "model": "opencode/deepseek-v4-flash",
       "temperature": 0.1,
       "steps": 30,
       "permission": {
