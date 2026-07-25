@@ -39,12 +39,5 @@ document.addEventListener('click', e => {
   }
 })
 
-const _originalNavigate = navigate
-navigate = function(path, push = true) {
-  if (typeof jitsiApi !== 'undefined' && jitsiApi) {
-    jitsiApi.dispose()
-    jitsiApi = null
-  }
-  _originalNavigate(path, push)
-}
+// navigate — чистая функция, без обёртки (MiroTalk iframe не требует dispose)
 
