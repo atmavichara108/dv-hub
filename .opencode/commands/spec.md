@@ -1,16 +1,20 @@
 
 ---
-description: Сгенерировать спек для задачи перед build
+description: Прочитать canonical execution spec из Vault для текущего проекта
 agent: plan
 ---
 
-Я собираюсь делать $ARGUMENTS. Прочитай эту задачу в context/DV/Operations/Kanban/Tasks/. Прочитай связанные ADR из docs/architecture.md.
+Это pointer-compatible local wrapper для глобального `/spec`. Selector: $ARGUMENTS
 
-Напиши TЗ так, как если бы передавал её незнакомому разработчику:
-1. Цель.
-2. Что НЕ очевидно из задачи.
-3. Какие риски и edge cases.
-4. С чего стоит начать (первый коммит).
-5. Definition of Done.
+Сначала прочитай локальные `AGENTS.md` и `README.md`, затем используй только
+canonical Vault location:
+`/home/rudra/Projects/OpenCode-Vault/06-Specs/dv-hub/`.
 
-Не пиши код.
+Если selector не указан, покажи доступные canonical specs для dv-hub и инструкцию
+вызвать `/spec <selector>`. Не создавай локальную копию и не используй случайные
+`context/` или `docs/` specs как fallback. Если Vault недоступен, остановись с
+`BLOCKED` и точной причиной.
+
+Старый task-planning workflow из `context/DV/Operations/Kanban/Tasks/` и ADR
+может быть использован только после чтения canonical spec и только как входные
+материалы; этот wrapper не создаёт новую конкурирующую execution spec.
