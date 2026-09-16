@@ -7,8 +7,6 @@
     "build": "vite build",
     "build:server": "vite build",
     "start": "node dist/server.js",
-    "dev:cf": "wrangler pages dev dist --d1=dv-hub-production --local --ip 0.0.0.0 --port 3000",
-    "deploy:cf": "npm run build && wrangler pages deploy dist --project-name dv-hub",
     "deploy:vps": "bash scripts/deploy-vps.sh",
     "deploy": "npm run deploy:vps",
     "context:init": "git submodule update --init --recursive",
@@ -18,11 +16,13 @@
     "context:log": "cd context && git log --oneline -10 && cd ..",
     "db:init": "node scripts/init-db.js",
     "db:migrate:local": "node scripts/init-db.js",
-    "db:seed": "node scripts/seed.js",
     "db:reset": "rm -f data/dv-hub.db data/dv-hub.db-wal data/dv-hub.db-shm && npm run db:init",
-    "lint": "eslint . --ext .ts",
-    "test": "jest",
-    "ci": "npm run lint && npm run build"
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --passWithNoTests",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"scripts/**/*.js\" \"tests/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"scripts/**/*.js\" \"tests/**/*.ts\"",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.4",
