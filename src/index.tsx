@@ -131,8 +131,10 @@ export function createApp(env: AppBindings): Hono<Env> {
 </html>`;
 
   // SPA — все страницы отдают один HTML
-  const page = (c: { html: (s: string) => Response | Promise<Response> }, title: string) =>
-    c.html(html(title, env.TELEGRAM_BOT_USERNAME || ""));
+  const page = (
+    c: { html: (s: string) => Response | Promise<Response> },
+    title: string,
+  ) => c.html(html(title, env.TELEGRAM_BOT_USERNAME || ""));
 
   app.get("/", (c) => page(c, "Дашборд"));
   app.get("/materials", (c) => page(c, "Материалы"));
@@ -150,5 +152,3 @@ export function createApp(env: AppBindings): Hono<Env> {
 
   return app;
 }
-
-

@@ -33,16 +33,19 @@ DV Hub — самохостимая исследовательская плат�
 
 ## Commands
 
-- `npm run dev` — local dev server (Vite)
-- `npm run build` — production build
-- `npm run deploy` — alias to deploy:cf (текущий) → deploy:vps (после DV-008)
-- `npm run db:migrate:local` — apply migrations locally
-- `npm run db:seed` — seed database
+- `npm run dev` — local dev server (tsx watch, Node.js) → http://localhost:8787
+- `docker compose up --build` — то же dev-окружение в Docker (порт 8787)
+- `npm run build` — production build (Vite → dist/server.js)
+- `npm run deploy` — deploy:vps (rsync + PM2 на re-search.wiki)
+- `npm run db:migrate:local` — apply migrations + seed (idempotent)
 - `npm run db:reset` — drop + migrate + seed
-- `npm run lint` / `npm run test` / `npm run ci`
+- `npm run lint` / `npm run typecheck` / `npm run test` — линт / проверка типов / тесты
+- `npm run ci` — lint + typecheck + test + build (гейт перед PR и деплоем)
+- `npm run format` / `format:check` — Prettier (src + scripts)
 - `npm run context:sync` / `context:bump` / `context:status` — работа с submodule
 
-См. `package.json` для полного списка.
+См. `package.json` для полного списка. CI — `.github/workflows/ci.yml`.
+Миграции применяются через `scripts/init-db.js` — идемпотентно (таблица `schema_migrations`).
 
 ## Project Structure
 
@@ -165,4 +168,3 @@ plan делегирует задачи через task tool. У plan по кон
 - reviewer:   ничего не редактирует, только читает и комментирует
 
 Спеки задач хранятся в context/DV/Operations/Specs/DV-XXX-spec.md (создаёт plan, читают build/infra).
-

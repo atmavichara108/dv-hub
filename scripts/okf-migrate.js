@@ -9,83 +9,83 @@
  * Usage: node scripts/okf-migrate.js
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, basename, extname } from 'node:path';
+import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative, basename, extname } from "node:path";
 
-const ROOT = new URL('../context/DV', import.meta.url).pathname;
+const ROOT = new URL("../context/DV", import.meta.url).pathname;
 const TODAY = new Date().toISOString().slice(0, 10); // 2026-06-27
 
 // Directories to skip entirely
-const SKIP_DIRS = new Set(['temp', 'Templates']);
+const SKIP_DIRS = new Set(["temp", "Templates"]);
 
 // Stub files (by relative path from DV/) — too small, skip
 const STUB_FILES = new Set([
-  'Operations/Metrics.md',
-  'Operations/Monetization.md',
-  'Operations/Risks and Blockers.md',
+  "Operations/Metrics.md",
+  "Operations/Monetization.md",
+  "Operations/Risks and Blockers.md",
 ]);
 
 // Files that already have frontmatter (known) — will be detected automatically
 // but we also skip index.md and log.md
-const SKIP_NAMES = new Set(['index.md', 'log.md']);
+const SKIP_NAMES = new Set(["index.md", "log.md"]);
 
 /**
  * Type map: relative path → OKF type
  */
 const TYPE_MAP = {
   // Movement
-  'Movement/DV Foundation.md': 'Movement Foundation',
+  "Movement/DV Foundation.md": "Movement Foundation",
 
   // Structure
-  'Structure/S3 Integration.md': 'Structure Pattern',
-  'Structure/Consent.md': 'Protocol',
-  'Structure/Lifecycle.md': 'Lifecycle Phase',
-  'Structure/Onboarding Scenario.md': 'Protocol',
-  'Structure/Cell Anatomy.md': 'Structure Pattern',
-  'Structure/Cells Network.md': 'Cell Map',
-  'Structure/Cells Map.md': 'Cell Map',
-  'Structure/Roles.md': 'Role Definition',
-  'Structure/Roles Matrix — Template.md': 'Template',
-  'Structure/Cell Passport — Template.md': 'Template',
-  'Structure/Agreement Template.md': 'Template',
-  'Structure/Driver Template.md': 'Template',
-  'Structure/S3 Glossary.md': 'Glossary',
-  'Structure/Decision Protocol.md': 'Protocol',
-  'Structure/Feedback Protocol.md': 'Protocol',
-  'Structure/Proposal Protocol.md': 'Protocol',
-  'Structure/Rotation.md': 'Protocol',
-  'Structure/Logbook.md': 'Structure Pattern',
+  "Structure/S3 Integration.md": "Structure Pattern",
+  "Structure/Consent.md": "Protocol",
+  "Structure/Lifecycle.md": "Lifecycle Phase",
+  "Structure/Onboarding Scenario.md": "Protocol",
+  "Structure/Cell Anatomy.md": "Structure Pattern",
+  "Structure/Cells Network.md": "Cell Map",
+  "Structure/Cells Map.md": "Cell Map",
+  "Structure/Roles.md": "Role Definition",
+  "Structure/Roles Matrix — Template.md": "Template",
+  "Structure/Cell Passport — Template.md": "Template",
+  "Structure/Agreement Template.md": "Template",
+  "Structure/Driver Template.md": "Template",
+  "Structure/S3 Glossary.md": "Glossary",
+  "Structure/Decision Protocol.md": "Protocol",
+  "Structure/Feedback Protocol.md": "Protocol",
+  "Structure/Proposal Protocol.md": "Protocol",
+  "Structure/Rotation.md": "Protocol",
+  "Structure/Logbook.md": "Structure Pattern",
 
   // Community
-  'Community/Communications.md': 'Community Process',
-  'Community/Events.md': 'Community Process',
-  'Community/Members.md': 'Community Process',
-  'Community/Onboarding.md': 'Community Process',
+  "Community/Communications.md": "Community Process",
+  "Community/Events.md": "Community Process",
+  "Community/Members.md": "Community Process",
+  "Community/Onboarding.md": "Community Process",
 
   // Content
-  'Content/Content Plan.md': 'Content Pipeline',
-  'Content/Formats.md': 'Content Pipeline',
-  'Content/Media Tools.md': 'Content Pipeline',
-  'Content/Publishing Funnel.md': 'Content Pipeline',
-  'Content/Topics in Progress.md': 'Content Pipeline',
+  "Content/Content Plan.md": "Content Pipeline",
+  "Content/Formats.md": "Content Pipeline",
+  "Content/Media Tools.md": "Content Pipeline",
+  "Content/Publishing Funnel.md": "Content Pipeline",
+  "Content/Topics in Progress.md": "Content Pipeline",
 
   // Operations
-  'Operations/map_var.md': 'Reference',
+  "Operations/map_var.md": "Reference",
 
   // Research
-  'Research/Research Workflow.md': 'Research Workflow',
+  "Research/Research Workflow.md": "Research Workflow",
 
   // Research / Current Research
-  'Research/Current Research/AI and Future.md': 'Research Topic',
-  'Research/Current Research/Ecology.md': 'Research Topic',
-  'Research/Current Research/Masculine and Feminine.md': 'Research Topic',
+  "Research/Current Research/AI and Future.md": "Research Topic",
+  "Research/Current Research/Ecology.md": "Research Topic",
+  "Research/Current Research/Masculine and Feminine.md": "Research Topic",
 
   // Site
-  'Site/Site Architecture.md': 'Site Architecture',
-  'Site/Feature Backlog.md': 'Feature Backlog',
-  'Site/UX Notes.md': 'UX Note',
-  'Site/Deploy and Infra.md': 'Playbook',
-  'Site/S3 Integration.md': 'Structure Pattern',
+  "Site/Site Architecture.md": "Site Architecture",
+  "Site/Feature Backlog.md": "Feature Backlog",
+  "Site/UX Notes.md": "UX Note",
+  "Site/Deploy and Infra.md": "Playbook",
+  "Site/S3 Integration.md": "Structure Pattern",
 };
 
 /**
@@ -97,14 +97,14 @@ function extractTitle(content, fileName) {
     return match[1].trim();
   }
   // Fallback: filename without extension
-  return fileName.replace(/\.md$/, '');
+  return fileName.replace(/\.md$/, "");
 }
 
 /**
  * Check if content already has YAML frontmatter (starts with ---)
  */
 function hasFrontmatter(content) {
-  return content.startsWith('---');
+  return content.startsWith("---");
 }
 
 /**
@@ -128,7 +128,7 @@ function* walk(dir, baseDir = ROOT) {
       yield* walk(fullPath, baseDir);
     } else if (entry.isFile()) {
       // Only .md files
-      if (extname(entry.name) !== '.md') continue;
+      if (extname(entry.name) !== ".md") continue;
       // Skip index.md and log.md
       if (SKIP_NAMES.has(entry.name)) continue;
       yield relPath;
@@ -154,7 +154,7 @@ function migrate() {
       continue;
     }
 
-    const content = readFileSync(fullPath, 'utf-8');
+    const content = readFileSync(fullPath, "utf-8");
 
     // Skip files that already have frontmatter
     if (hasFrontmatter(content)) {
@@ -164,7 +164,7 @@ function migrate() {
     }
 
     // Determine type
-    const type = TYPE_MAP[relPath] || 'Task';
+    const type = TYPE_MAP[relPath] || "Task";
 
     // Extract title
     const fileName = basename(relPath);
@@ -172,24 +172,24 @@ function migrate() {
 
     // Build frontmatter
     const frontmatter = [
-      '---',
+      "---",
       `type: ${type}`,
       `title: ${title}`,
       'description: ""',
-      'tags: []',
+      "tags: []",
       `timestamp: ${TODAY}`,
-      '---',
-    ].join('\n');
+      "---",
+    ].join("\n");
 
     // Prepend frontmatter to content
-    const newContent = frontmatter + '\n' + content;
+    const newContent = frontmatter + "\n" + content;
 
-    writeFileSync(fullPath, newContent, 'utf-8');
+    writeFileSync(fullPath, newContent, "utf-8");
     console.log(`  OK:    ${relPath} → type: ${type}, title: ${title}`);
     processed++;
   }
 
-  console.log('\n=== Migration Summary ===');
+  console.log("\n=== Migration Summary ===");
   console.log(`  Processed: ${processed}`);
   console.log(`  Skipped:   ${skipped}`);
   if (errors.length > 0) {
@@ -198,7 +198,7 @@ function migrate() {
       console.log(`    - ${err}`);
     }
   }
-  console.log('========================\n');
+  console.log("========================\n");
 }
 
 migrate();
