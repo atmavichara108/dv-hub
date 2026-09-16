@@ -68,3 +68,12 @@
 **Решение**: Telegram Login Widget (primary), email magic-link через Resend с верифицированным re-search.wiki (fallback). Сессии — HTTP-only cookie + sessions table в БД.
 
 **Последствия**: зависимость от Resend (free tier 100 писем/день — пока хватит); Telegram Login Widget требует HTTPS и публичный домен (✓).
+
+## ADR-009: Idempotent migrations via schema_migrations
+**Контекст**: `scripts/init-db.js` применял все `.sql`-файлы при каждом запуске; миграции 0004/0006 не идемпотентны (ALTER TABLE ADD COLUMN / RENAME), поэтому повторный запуск (и каждый деплой, и старт Docker-контейнера) падал, а seed.sql дублировал данные.
+
+**Решение**: прогресс миграций хранится в таблице `schema_migrations` (filename PK). Существующая БД без этой таблицы «бейзлайнится» — текущий набор помечается применённым без повторного выполнения. Seed применяется только на свежей БД.
+
+Дополнительно миграции выполняются с `PRAGMA foreign_keys = OFF` и `PRAGMA legacy_alter_table = ON`: 0006 пересоздаёт `users` через `ALTER TABLE ... RENAME`, и без `legacy_alter_table` SQLite переписывает FK дочерних таблиц на транзитное имя `users_old`, оставляя их висячими после DROP.
+
+**Последствия**: `npm run db:migrate:local`, `db:reset`, деплой и Docker-старт безопасно повторяемы.
