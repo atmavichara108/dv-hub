@@ -62,9 +62,10 @@
 ## Установка для разработки
 
 ### Требования
-- Node.js 20 или 22
+- Node.js 22 (см. [.nvmrc](.nvmrc))
 - npm 10+
 - git с поддержкой submodules
+- Docker + Docker Compose — опционально, для дев-окружения в контейнере
 
 ### Клонирование
 
@@ -95,29 +96,49 @@ npm run context:log      # последние коммиты submodule
 
 Подробнее о submodule см. секцию [«Submodule и его подводные камни»](#submodule-и-его-подводные-камни) ниже.
 
-### Запуск (текущий, на Cloudflare)
+### Запуск (локально, Node.js)
 
 ```bash
-npm run db:migrate:local
-npm run db:seed
-npm run dev:sandbox       # http://localhost:3000
+npm install
+npm run db:migrate:local   # применить миграции + seed (init-db.js, идемпотентно)
+npm run dev                # tsx watch → http://localhost:8787
 ```
 
 Сброс БД: `npm run db:reset`.
 
-### Запуск (target, Node.js — после DV-008)
-TBD после миграции с D1.
+Секреты (Telegram/Resend) читаются из `.env` — скопируй `.env.example` → `.env`.
+
+### Запуск (Docker, локально)
+
+```bash
+cp .env.example .env       # секреты; опционально
+docker compose up --build  # http://localhost:8787
+```
+
+- Образ `node:22-slim`, hot-reload через `tsx watch` (bind-mount исходников).
+- БД живёт в named volume `dv-hub-data` и переживает перезапуск контейнера.
+- Миграции применяются автоматически при старте контейнера (идемпотентно).
+- Прод остаётся на PM2 + Nginx **без** Docker (ADR-001).
 
 ---
 
 ## Тестирование
 
 ```bash
-npm run test    # Jest
-npm run lint    # ESLint
-npm run build   # Vite
-npm run ci      # lint + test + build
+npm run test         # Jest (интеграционные тесты API)
+npm run lint         # ESLint (.ts + .tsx)
+npm run typecheck    # tsc --noEmit
+npm run format       # Prettier --write (src + scripts)
+npm run format:check # Prettier --check
+npm run ci           # lint + typecheck + test + build
 ```
+
+CI (GitHub Actions, [.github/workflows/ci.yml](.github/workflows/ci.yml)) прогоняет
+`npm ci` → lint → typecheck → test → build на каждом push в `main` и в pull request.
+Это гейт перед деплоем на VPS (`npm run deploy:vps`).
+
+Миграции применяются через `scripts/init-db.js` (идемпотентно: прогресс хранится в
+таблице `schema_migrations`, повторный запуск безопасен).
 
 ---
 

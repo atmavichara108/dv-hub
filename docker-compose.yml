@@ -1,0 +1,22 @@
+services:
+  dev:
+    build: .
+    image: dv-hub:dev
+    container_name: dv-hub-dev
+    ports:
+      - "8787:8787"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - dv-hub-data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8787"
+      DB_PATH: "/app/data/dv-hub.db"
+    stdin_open: true
+    tty: true
+
+volumes:
+  dv-hub-data:

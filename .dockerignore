@@ -1,0 +1,13 @@
+node_modules
+dist
+data
+.git
+.gitmodules
+context
+.opencode
+coverage
+.env
+.env.*
+*.log
+.wrangler
+.DS_Store
