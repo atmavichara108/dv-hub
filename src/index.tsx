@@ -28,6 +28,7 @@ export function createApp(env: AppBindings): Hono<Env> {
   const html = (
     title: string = "DV Hub",
     botUsername: string = "",
+    localAuthEnabled: boolean = false,
   ) => `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -69,7 +70,10 @@ export function createApp(env: AppBindings): Hono<Env> {
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #d1cbb8; border-radius: 2px; }
   </style>
-  <script>window.__TG_BOT_USERNAME__ = '${botUsername}';</script>
+  <script>
+    window.__TG_BOT_USERNAME__ = ${JSON.stringify(botUsername)};
+    window.__LOCAL_AUTH_ENABLED__ = ${JSON.stringify(localAuthEnabled)};
+  </script>
 </head>
 <body class="bg-ink-50 text-ink-800 min-h-screen">
 
@@ -134,7 +138,10 @@ export function createApp(env: AppBindings): Hono<Env> {
   const page = (
     c: { html: (s: string) => Response | Promise<Response> },
     title: string,
-  ) => c.html(html(title, env.TELEGRAM_BOT_USERNAME || ""));
+  ) =>
+    c.html(
+      html(title, env.TELEGRAM_BOT_USERNAME || "", env.LOCAL_AUTH_ENABLED),
+    );
 
   app.get("/", (c) => page(c, "Дашборд"));
   app.get("/materials", (c) => page(c, "Материалы"));

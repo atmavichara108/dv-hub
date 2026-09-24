@@ -27,8 +27,10 @@ timestamp: 2026-09-15
 - **Seed**: единственный путь — `seed.sql` внутри `init-db.js` на свежей БД.
   `scripts/seed.js` / `db:seed` удалены как дублирующие заглушки.
 - **CI/гейт**: `npm run ci` = `eslint(.ts,.tsx)` + `tsc --noEmit` + `jest` + `vite build`.
-  GitHub Actions — `.github/workflows/ci.yml` (Node 22). Jest в ESM-режиме, 6 интеграционных
+  GitHub Actions — `.github/workflows/ci.yml` (Node 22). Jest в ESM-режиме, 9 интеграционных
   тестов API в `tests/api.test.ts`.
+- **Локальная auth**: `LOCAL_AUTH_ENABLED=true` при `NODE_ENV=development` включает
+  dev-only вход под сидовым admin без Telegram/Resend. В production он недоступен.
 
 ## Specs в этом каталоге
 
@@ -38,6 +40,7 @@ timestamp: 2026-09-15
 | [data-recovery.md](data-recovery.md) | Открытый критичный вопрос: восстановление живых данных Cloudflare-эпохи |
 | [audit-drift-backlog.md](audit-drift-backlog.md) | Открытые findings аудита Phase D (что снято, что осталось) |
 | [pipboy-synergy.md](pipboy-synergy.md) | Контракт совместной разработки dv-hub через Pip-Boy |
+| [local-development.md](local-development.md) | Канонический localhost-контур и результаты актуального аудита |
 
 ## Границы каталога
 

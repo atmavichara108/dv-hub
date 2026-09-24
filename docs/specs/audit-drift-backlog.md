@@ -2,9 +2,9 @@
 type: Execution Spec
 title: dv-hub audit drift & security backlog — открытые пункты Phase D
 project: dv-hub
-status: open
+status: partially-resolved
 priority: P2
-timestamp: 2026-09-15
+timestamp: 2026-09-24
 ---
 
 # dv-hub audit drift & security backlog (Phase D)
@@ -17,7 +17,7 @@ timestamp: 2026-09-15
 
 | Finding | Тип | Было (2026-08-03) | Статус now | Что осталось |
 |---------|-----|-------------------|-----------|--------------|
-| G-D-RUN-3 | methodology | `tests/` пуст, `npm test` exit 1, CI без тестов | **СНЯТ** | `tests/api.test.ts` (6), `--passWithNoTests`, CI=lint+typecheck+test+build |
+| G-D-RUN-3 | methodology | `tests/` пуст, `npm test` exit 1, CI без тестов | **СНЯТ** | `tests/api.test.ts` (9), `--passWithNoTests`, CI=lint+typecheck+test+build |
 | G-D-RUN-6 | methodology | CI excludes tests, `.github/` absent | **СНЯТ** | `.github/workflows/ci.yml` добавлен |
 | G-D-DOC-2 | drift | README command table (5 vs 7) | **СНЯТ** | README переписан под фактический набор скриптов |
 | G-D-DOC-4 | drift | Card log stale с 2026-06-30 | **СНЯТ** | `03-Projects/dv-hub.md` обновлён 2026-09-15 |
@@ -41,6 +41,14 @@ timestamp: 2026-09-15
 2. `G-D-RUN-4` (hono bump + advisory confirm) — единственный security candidate.
 3. `G-D-RUN-7` (`npm audit`/`npm outdated`) — заморозить зависимости в CI.
 4. `G-D-DOC-1` (VPS provider truth) — при подтверждении.
+
+## Актуализация 2026-09-24
+
+- Production dependency advisories устранены обновлением lockfile; `npm audit --omit=dev` = 0.
+- README/AGENTS drift о current Cloudflare runtime устранён.
+- Для работы без Telegram/Resend добавлена строго dev-only локальная авторизация.
+- VPS больше не является текущим блокером: canonical baseline — localhost.
+- Остаются browser E2E, Docker runtime smoke, offline CDN dependencies и recovery живых данных.
 
 ## Границы
 

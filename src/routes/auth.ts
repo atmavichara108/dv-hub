@@ -22,6 +22,32 @@ import {
 
 const auth = new Hono<Env>();
 
+// Allows protected flows to be exercised locally without external providers.
+auth.post("/dev-login", async (c) => {
+  if (!c.env.LOCAL_AUTH_ENABLED) {
+    return c.json({ error: { code: 404, message: "not found" } }, 404);
+  }
+
+  const user = c.env.DB.prepare(
+    `SELECT id, name, role FROM users WHERE role = 'admin' ORDER BY id LIMIT 1`,
+  ).get() as { id: number; name: string; role: string } | undefined;
+
+  if (!user) {
+    return c.json(
+      {
+        error: {
+          code: 409,
+          message: "Локальный admin не найден. Выполните npm run db:init.",
+        },
+      },
+      409,
+    );
+  }
+
+  await createSession(c, user.id);
+  return c.json({ ok: true, user });
+});
+
 // ── Кто я? ────────────────────────────────────────
 auth.get("/me", async (c) => {
   const sessionId = getCookie(c, "session");

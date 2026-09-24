@@ -35,6 +35,7 @@ export type Env = {
     TELEGRAM_WEBHOOK_SECRET: string;
     RESEND_API_KEY: string;
     RESEND_FROM_EMAIL: string;
+    LOCAL_AUTH_ENABLED: boolean;
   };
   Variables: {
     user: {
@@ -47,6 +48,10 @@ export type Env = {
     };
   };
 };
+
+export function isLocalAuthEnabled(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === "development" && env.LOCAL_AUTH_ENABLED === "true";
+}
 
 // ---------------------------------------------------------------------------
 //  Utility: verify Telegram login signature

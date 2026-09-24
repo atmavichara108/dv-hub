@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { createApp } from "../src/index";
-import type { Env } from "../src/lib/auth";
+import { isLocalAuthEnabled, type Env } from "../src/lib/auth";
 
 describe("DV Hub API", () => {
   let db: Database.Database;
@@ -33,6 +33,7 @@ describe("DV Hub API", () => {
       TELEGRAM_WEBHOOK_SECRET: "",
       RESEND_API_KEY: "",
       RESEND_FROM_EMAIL: "",
+      LOCAL_AUTH_ENABLED: false,
     };
     app = createApp(env);
   });
@@ -89,5 +90,38 @@ describe("DV Hub API", () => {
   it("blocks unauthenticated profile access", async () => {
     const res = await request("/api/profile");
     expect(res.status).toBe(401);
+  });
+
+  it("does not expose local auth by default", async () => {
+    const res = await request("/auth/dev-login", { method: "POST" });
+    expect(res.status).toBe(404);
+  });
+
+  it("allows local auth only when explicitly enabled", async () => {
+    const res = await app.request(
+      "/auth/dev-login",
+      { method: "POST" },
+      { ...env, LOCAL_AUTH_ENABLED: true },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toContain("session=");
+  });
+});
+
+describe("local auth environment guard", () => {
+  it("requires both the development environment and the explicit flag", () => {
+    expect(
+      isLocalAuthEnabled({
+        NODE_ENV: "development",
+        LOCAL_AUTH_ENABLED: "true",
+      }),
+    ).toBe(true);
+    expect(isLocalAuthEnabled({ LOCAL_AUTH_ENABLED: "true" })).toBe(false);
+    expect(
+      isLocalAuthEnabled({
+        NODE_ENV: "production",
+        LOCAL_AUTH_ENABLED: "true",
+      }),
+    ).toBe(false);
   });
 });

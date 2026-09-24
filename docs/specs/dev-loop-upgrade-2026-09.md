@@ -42,7 +42,7 @@ timestamp: 2026-09-15
 
 ### Тесты
 - Jest в ESM-режиме (`jest.config.js`: ts-jest `useESM`, `extensionsToTreatAsEsm`).
-- `tests/api.test.ts` — 6 интеграционных тестов через `createApp(env)`; Hono-биндинги
+- `tests/api.test.ts` — 9 интеграционных тестов через `createApp(env)`; Hono-биндинги
   передаются **третьим аргументом** `app.request(path, init, env)`, не инжертятся сами.
 - `npm test` использует `--passWithNoTests`, чтобы пустой набор не ронял гейт.
 

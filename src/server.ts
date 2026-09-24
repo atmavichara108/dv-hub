@@ -13,7 +13,7 @@ import dotenv from "dotenv";
 import { mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createApp } from "./index";
-import { cleanupExpiredTelegramTokens } from "./lib/auth";
+import { cleanupExpiredTelegramTokens, isLocalAuthEnabled } from "./lib/auth";
 
 // Load .env from project root
 dotenv.config();
@@ -34,6 +34,8 @@ db.pragma("foreign_keys = ON");
 // Clean up expired telegram tokens on startup
 cleanupExpiredTelegramTokens(db);
 
+const localAuthEnabled = isLocalAuthEnabled(process.env);
+
 // Periodic cleanup every hour
 setInterval(() => cleanupExpiredTelegramTokens(db), 60 * 60 * 1000);
 
@@ -45,6 +47,7 @@ const app = createApp({
   TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || "",
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "",
+  LOCAL_AUTH_ENABLED: localAuthEnabled,
 });
 
 // ── Static files ──────────────────────────────────────────────
@@ -58,10 +61,12 @@ app.use(
 
 // ── Start server ──────────────────────────────────────────────
 const port = parseInt(process.env.PORT || "8787", 10);
+const hostname = process.env.HOST || "127.0.0.1";
 
 console.log(`DV Hub starting...`);
 console.log(`  Database: ${dbPath}`);
 console.log(`  Port: ${port}`);
+console.log(`  Host: ${hostname}`);
 console.log(`  Node.js: ${process.version}`);
 
 serve(
@@ -74,8 +79,10 @@ serve(
         TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || "",
         RESEND_API_KEY: process.env.RESEND_API_KEY || "",
         RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "",
+        LOCAL_AUTH_ENABLED: localAuthEnabled,
       }),
     port,
+    hostname,
   },
   (info) => {
     console.log(`DV Hub listening on http://localhost:${info.port}`);

@@ -4,7 +4,7 @@ services:
     image: dv-hub:dev
     container_name: dv-hub-dev
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"
     volumes:
       - .:/app
       - /app/node_modules
@@ -14,6 +14,7 @@ services:
         required: false
     environment:
       PORT: "8787"
+      HOST: "0.0.0.0"
       DB_PATH: "/app/data/dv-hub.db"
     stdin_open: true
     tty: true

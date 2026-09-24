@@ -2,13 +2,12 @@
 
 Самохостимая исследовательская платформа для интеллектуальных дискуссий: от сбора материалов до синтеза результатов.
 
-**Текущий продакшен:** [dv-hub.pages.dev](https://dv-hub.pages.dev) (Cloudflare Pages, миграция в процессе)
-**Целевой продакшен:** re-search.wiki (self-hosted VPS, Phase 0)
+**Текущий режим разработки:** локальный Node.js + SQLite на http://localhost:8787
+**Продакшен:** приостановлен; VPS не требуется для разработки
 
-**Стек (target):** Hono + TypeScript · Node.js + PM2 · Nginx · SQLite · Vanilla JS + Tailwind
-**Стек (current):** Hono + TypeScript · Cloudflare Workers/Pages · D1 (SQLite) · Vanilla JS + Tailwind
+**Текущий стек:** Hono + TypeScript · Node.js · better-sqlite3 · Vanilla JS + Tailwind · Vite
 
-> ⚠️ Проект в активной миграции с Cloudflare на собственную инфраструктуру. См. [docs/roadmap.md](docs/roadmap.md) и [docs/architecture.md](docs/architecture.md).
+> Код уже мигрирован с Cloudflare на Node.js. Возврат к публичному размещению является отдельной будущей задачей и не блокирует локальную разработку.
 
 ---
 
@@ -72,7 +71,7 @@
 ```bash
 git clone --recurse-submodules https://github.com/atmavichara108/dv-hub.git
 cd dv-hub
-npm install
+npm ci
 ```
 
 Если уже клонировал без `--recurse-submodules`:
@@ -99,23 +98,37 @@ npm run context:log      # последние коммиты submodule
 ### Запуск (локально, Node.js)
 
 ```bash
-npm install
+npm ci
 npm run db:migrate:local   # применить миграции + seed (init-db.js, идемпотентно)
 npm run dev                # tsx watch → http://localhost:8787
 ```
 
+Минимальный `.env` для проверки защищённых сценариев без внешних сервисов:
+
+```dotenv
+NODE_ENV=development
+HOST=127.0.0.1
+LOCAL_AUTH_ENABLED=true
+```
+
+После запуска нажмите «Войти» → «Войти как локальный admin». Этот путь не требует
+Telegram или Resend, возвращает 404 без явного флага и принудительно отключается при
+`NODE_ENV=production`.
+
 Сброс БД: `npm run db:reset`.
 
-Секреты (Telegram/Resend) читаются из `.env` — скопируй `.env.example` → `.env`.
+Telegram/Resend опциональны локально. Для проверки этих интеграций заполните
+соответствующие поля в `.env`; не коммитьте этот файл.
 
 ### Запуск (Docker, локально)
 
 ```bash
-cp .env.example .env       # секреты; опционально
+cp .env.example .env       # локальный вход включён, внешние секреты опциональны
 docker compose up --build  # http://localhost:8787
 ```
 
 - Образ `node:22-slim`, hot-reload через `tsx watch` (bind-mount исходников).
+- Порт публикуется только на `127.0.0.1`; приложение не открывается в локальную сеть.
 - БД живёт в named volume `dv-hub-data` и переживает перезапуск контейнера.
 - Миграции применяются автоматически при старте контейнера (идемпотентно).
 - Прод остаётся на PM2 + Nginx **без** Docker (ADR-001).

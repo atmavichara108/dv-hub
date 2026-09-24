@@ -5,21 +5,21 @@
 
 ## Project Overview
 
-DV Hub — самохостимая исследовательская платформа движения «Дискуссионные Вечера». Сейчас находится в Phase 0: миграция с Cloudflare Pages на собственный VPS (домен re-search.wiki).
+DV Hub — исследовательская платформа движения «Дискуссионные Вечера». Код мигрирован с Cloudflare на Node.js; основной рабочий контур сейчас локальный, без обязательного VPS.
 
 См. `docs/product-vision.md` для целей и anti-goals, `docs/architecture.md` для архитектурных решений (ADR).
 
 ## Stack
 
 ### Current (на момент написания)
-- Runtime: Cloudflare Workers (Hono framework)
-- Database: Cloudflare D1 (SQLite)
-- Deploy: Cloudflare Pages
+- Runtime: Node.js 22 + Hono
+- Database: SQLite через better-sqlite3
+- Development: localhost:8787, нативно или через Docker Compose
 
-### Target (Phase 0 в работе)
+### Future hosting (не блокирует разработку)
 - Runtime: Node.js + PM2
 - Reverse proxy: Nginx
-- Database: SQLite (better-sqlite3 или libSQL)
+- Database: SQLite (better-sqlite3)
 - Host: Fornex VPS, Ubuntu 24.04, Germany
 - Domain: re-search.wiki
 - Video: MiroTalk SFU на meet.re-search.wiki

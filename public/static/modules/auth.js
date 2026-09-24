@@ -56,10 +56,17 @@ function renderAuthNav() {
 // Модалка входа: Telegram + Email
 function showLoginModal() {
   const botUsername = window.__TG_BOT_USERNAME__
+  const localAuthEnabled = window.__LOCAL_AUTH_ENABLED__
   openModal(`
   <div class="p-6">
     <h3 class="text-lg font-semibold mb-2">Вход в DV Hub</h3>
     <p class="text-sm text-ink-400 mb-6">Выберите способ входа</p>
+
+    ${localAuthEnabled
+      ? `<button id="local-login-btn" class="w-full mb-6 bg-accent-500 hover:bg-accent-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
+          <i class="fas fa-laptop-code mr-2"></i>Войти как локальный admin
+        </button>`
+      : ''}
 
     <!-- Telegram Login -->
     <div class="mb-6">
@@ -97,6 +104,20 @@ function showLoginModal() {
       <p class="text-xs text-ink-400">Без входа вы можете просматривать публичные темы и отправлять идеи.</p>
     </div>
   </div>`)
+
+  document.getElementById('local-login-btn')?.addEventListener('click', async () => {
+    try {
+      const r = await axios.post('/auth/dev-login')
+      currentUser = r.data.user
+      closeModal()
+      renderAuthNav()
+      toast('Локальный вход выполнен')
+      navigate(location.pathname, false)
+    } catch (e) {
+      const msg = e.response?.data?.error?.message || 'Ошибка локального входа'
+      toast(msg, 'error')
+    }
+  })
 
   // Telegram login button — webhook-based flow with copy-to-clipboard
   const tgBtn = document.getElementById('telegram-login-btn')
@@ -270,4 +291,3 @@ function checkAuthParams() {
 }
 
 let currentPage = ''
-

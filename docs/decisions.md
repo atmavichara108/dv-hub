@@ -16,7 +16,7 @@
   `.github/workflows/ci.yml` (Node 22, `submodules: recursive`). Vite build НЕ проверяет типы —
   поэтому typecheck отдельным шагом, не выкидывать.
 - **Jest в ESM-режиме** (`jest.config.js`: ts-jest `useESM`, tsx в moduleFileExtensions).
-  `tests/api.test.ts` — 6 интеграционных тестов через `createApp(env)`;
+  `tests/api.test.ts` — первоначально 6 интеграционных тестов через `createApp(env)`;
   Hono-биндинги — **третий аргумент** `app.request(path, init, env)`.
 - `.nvmrc` = `22`. Prettier: `.prettierrc` (trailingComma all), формат по `src/scripts/tests`.
 
