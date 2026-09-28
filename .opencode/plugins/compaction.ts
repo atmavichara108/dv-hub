@@ -5,15 +5,16 @@
 // Маппинг хуков V1 → V2:
 //   session.compact (D2, V1: пост-хук, принимал { summary } и возвращал
 //     модифицированный summary) → ctx.session.hook("compaction", ...)
-//   session.idle (V1 no-op placeholder) → дропнут, см. V2-TODO ниже
+//   session.idle (V1 no-op placeholder) → дропнут (в V2 отдельного хука нет,
+//     no-op подписки не требует — подтверждено по схеме событий).
 //
-// V2-TODO (поведение может отличаться от V1): в V2 нет пост-хука над итоговым
-//   summary — ctx.session.hook("compaction") срабатывает ДО вызова модели-суммаризатора,
-//   а event.result пропускает LLM-саммари полностью (мы бы записали summary сами и
+// V2 (подтверждено по схеме SessionCompaction): пост-хука над итоговым
+//   summary нет по дизайну — hook срабатывает ДО вызова модели-суммаризатора,
+//   а event.result пропускает LLM-саммари полностью (summary писали бы сами и
 //   потеряли сжатие истории). Поэтому persistent context инжектится в event.system
 //   промпта компакции: он виден модели-суммаризатору и должен пережить компакцию,
 //   но итоговый summary формирует модель — текст может отличаться от V1.
-// V2-TODO: V1 session.idle был no-op placeholder'ом; отдельного хука session.idle в V2
+// V2: V1 session.idle был no-op placeholder'ом; отдельного хука session.idle в V2
 //   нет, no-op не требует подписки на события — хук дропнут без потери поведения.
 
 import { Plugin } from "@opencode/plugin"
