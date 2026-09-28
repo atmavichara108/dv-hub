@@ -32,6 +32,22 @@
     },
     "webfetch": "allow"
   },
+  "permissions": [
+    { "action": "edit", "resource": "*", "effect": "allow" },
+    { "action": "shell", "resource": "*", "effect": "allow" },
+    { "action": "shell", "resource": "cat .env*", "effect": "deny" },
+    { "action": "shell", "resource": "cat **/.env*", "effect": "deny" },
+    { "action": "shell", "resource": "cat **/auth.json", "effect": "deny" },
+    { "action": "shell", "resource": "cat **/.ssh/*", "effect": "deny" },
+    { "action": "shell", "resource": "cat **/keys-passwords*", "effect": "deny" },
+    { "action": "shell", "resource": "cat /etc/**", "effect": "deny" },
+    { "action": "shell", "resource": "cat /root/**", "effect": "deny" },
+    { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+    { "action": "shell", "resource": "git push -f*", "effect": "deny" },
+    { "action": "shell", "resource": "rm -rf *", "effect": "deny" },
+    { "action": "shell", "resource": "sudo *", "effect": "deny" },
+    { "action": "webfetch", "resource": "*", "effect": "allow" }
+  ],
   "agent": {
     "plan": {
       "mode": "primary",
@@ -100,6 +116,70 @@
       }
     }
   },
+  "agents": {
+    "plan": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "steps": 15,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "build": {
+      "mode": "primary",
+      "model": "opencode/deepseek-v4-flash",
+      "temperature": 0.1,
+      "steps": 30,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "*", "effect": "allow" },
+        { "action": "subagent", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "reviewer": {
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro",
+      "temperature": 0.1,
+      "steps": 15,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "git diff*", "effect": "allow" },
+        { "action": "shell", "resource": "git log*", "effect": "allow" },
+        { "action": "shell", "resource": "grep*", "effect": "allow" },
+        { "action": "shell", "resource": "cat*", "effect": "allow" },
+        { "action": "shell", "resource": "ls*", "effect": "allow" }
+      ]
+    },
+    "researcher": {
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.3,
+      "steps": 20,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "webfetch", "resource": "*", "effect": "allow" }
+      ]
+    },
+    "infra": {
+      "mode": "primary",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "steps": 30,
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "*", "effect": "allow" },
+        { "action": "shell", "resource": "ssh *", "effect": "deny" },
+        { "action": "shell", "resource": "sudo *", "effect": "deny" },
+        { "action": "shell", "resource": "git push --force*", "effect": "deny" },
+        { "action": "webfetch", "resource": "*", "effect": "allow" }
+      ]
+    }
+  },
   "mcp": {
     "github": {
       "type": "local",
@@ -108,6 +188,16 @@
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
       },
       "enabled": true
+    },
+    "servers": {
+      "github": {
+        "type": "local",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+        "environment": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+        },
+        "disabled": false
+      }
     }
   }
 }
