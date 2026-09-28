@@ -1,10 +1,22 @@
-
 // .opencode/plugins/compaction.ts
 // Inject persistent project context during session compaction.
-// Compaction triggers when context window fills; without this hook
-// the agent forgets phase/stack/anti-goals.
+// Нативный V2-формат (OpenCode 2.0.18): Plugin.define({ id, setup(ctx) }).
+//
+// Маппинг хуков V1 → V2:
+//   session.compact (D2, V1: пост-хук, принимал { summary } и возвращал
+//     модифицированный summary) → ctx.session.hook("compaction", ...)
+//   session.idle (V1 no-op placeholder) → дропнут, см. V2-TODO ниже
+//
+// V2-TODO (поведение может отличаться от V1): в V2 нет пост-хука над итоговым
+//   summary — ctx.session.hook("compaction") срабатывает ДО вызова модели-суммаризатора,
+//   а event.result пропускает LLM-саммари полностью (мы бы записали summary сами и
+//   потеряли сжатие истории). Поэтому persistent context инжектится в event.system
+//   промпта компакции: он виден модели-суммаризатору и должен пережить компакцию,
+//   но итоговый summary формирует модель — текст может отличаться от V1.
+// V2-TODO: V1 session.idle был no-op placeholder'ом; отдельного хука session.idle в V2
+//   нет, no-op не требует подписки на события — хук дропнут без потери поведения.
 
-import type { Plugin } from "@opencode-ai/plugin"
+import { Plugin } from "@opencode/plugin"
 
 const PERSISTENT_CONTEXT = `
 # DV Hub — Persistent Context (injected on compaction)
@@ -48,22 +60,17 @@ researcher (spikes), infra (DevOps).
 - ADR-004: Twake Drive for file storage
 `.trim()
 
-const plugin: Plugin = async ({ project, directory }) => {
-  return {
-    // Fires when opencode compacts the session to free context window.
-    // We append persistent context to the compaction summary so agent
-    // doesn't lose project-critical knowledge.
-    "session.compact": async ({ session, summary }) => {
-      return {
-        summary: `${summary}\n\n---\n\n${PERSISTENT_CONTEXT}`,
+const plugin = Plugin.define({
+  id: "dv-hub-compaction",
+  async setup(ctx) {
+    await ctx.session.hook("compaction", (event: { system?: Array<{ type: string; text: string }> }) => {
+      try {
+        event.system?.push({ type: "text", text: PERSISTENT_CONTEXT })
+      } catch (err) {
+        console.error(`[dv-hub-compaction] inject persistent context failed: ${err}`)
       }
-    },
-
-    // Optional: log compaction events for debugging
-    "session.idle": async ({ session }) => {
-      // no-op — placeholder for future notification plugin
-    },
-  }
-}
+    })
+  },
+})
 
 export default plugin
