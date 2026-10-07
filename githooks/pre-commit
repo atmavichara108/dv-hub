@@ -1,0 +1,95 @@
+#!/bin/bash
+# Pre-commit hook (Git Freed контур, порт из OpenCode-Vault 05-Templates).
+# Установка в проекте: ln -sf ../../githooks/pre-commit .git/hooks/pre-commit
+#
+# Гейты:
+#   1. Merge-conflict маркеры (<<<<<<< / ======= / >>>>>>>) в staged-файлах.
+#   2. Пустые текстовые файлы в staged.
+#   3. Битые [[wikilink]] — ТОЛЬКО если в staged-файлах есть викилинки.
+#   4. Decode-мусор (CJK/моджабаки в текстовых staged-файлах).
+#
+# Отличия от волт-эталона (осознанно, мандат B11):
+#   - нет main-gate: ветка product-репо живёт по своим правилам;
+#   - викилинк-гейт условный (репо без [[...]] не чинит).
+# Обходы: GARBAGE_OK=1 — только для whitelist-доказанных вхождений.
+# Known-FP v2: викилинк-экстракция вырезает fenced code-блоки и inline-code.
+# Гейт 4 настраивается файлом githooks/garbage-guard.conf (GG_EXCLUDE — regex
+# путей-исключений: вендорные бандлы, build-артефакты).
+
+set -u
+die() { echo "❌ $*" >&2; exit 1; }
+staged_files() { git diff --cached --name-only --diff-filter=ACMR; }
+
+# --- Гейт 1: конфликт-маркеры -------------------------------------------------
+echo "🔍 pre-commit: merge-conflict маркеры..."
+bad=false
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  if git show ":$f" 2>/dev/null | grep -Eq '^(<{7}[[:space:]]|>{7}[[:space:]]|={7}$)'; then
+    echo "❌ конфликт-маркеры в staged: $f"; bad=true
+  fi
+done < <(staged_files)
+$bad && die "незавершённый merge-conflict — разреши и пере-stage."
+echo "✅ конфликт-маркеров нет"
+
+# --- Гейт 2: пустые staged-файлы ----------------------------------------------
+echo "🔍 pre-commit: пустые файлы..."
+empty=false
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in *.md|*.txt|*.json|*.jsonl|*.yaml|*.yml|*.toml|*.py|*.sh|*.ts|*.tsx|*.js|*.kt|*.kts) ;; *) continue ;; esac
+  if [ "$(git show ":$f" | wc -c | tr -d ' ')" = "0" ]; then
+    echo "❌ пустой staged-файл: $f"; empty=true
+  fi
+done < <(staged_files)
+$empty && die "пустые файлы в коммите."
+echo "✅ пустых файлов нет"
+
+# --- Гейт 3: викилинки (условный) ----------------------------------------------
+LINKS=$(staged_files | grep -E '\.md$' | while IFS= read -r f; do
+  git show ":$f" 2>/dev/null | awk '/^```/{f=!f;next} !f' | sed 's/`[^`]*`//g' | grep -o '\[\[[^]|#]*'
+done | sed 's/\[\[//' | sort -u)
+if [ -z "$LINKS" ]; then
+  echo "✅ викилинков в staged нет — гейт пропущен"
+else
+  echo "🔍 pre-commit: [[wikilink]] (мишеней: $(echo "$LINKS" | grep -c .))..."
+  broken=false
+  while IFS= read -r target; do
+    [ -z "$target" ] && continue
+    found=false
+    if [ -e "$target" ] || [ -e "$target.md" ]; then found=true; else
+      base=$(basename "$target")
+      for ext in "" ".md" ".json" ".jsonl" ".sh" ".py"; do
+        if [ -n "$(git ls-files -- "*${base}${ext}" 2>/dev/null | head -1)" ]; then found=true; break; fi
+      done
+    fi
+    if ! $found; then echo "❌ битый викилинк: [[$target]]"; broken=true; fi
+  done <<< "$LINKS"
+  $broken && die "битые викилинки — починь ссылку или цель."
+  echo "✅ викилинки валидны"
+fi
+
+# --- Гейт 4: decode-мусор (garbage-guard) --------------------------------------
+if [ "${GARBAGE_OK:-}" != "1" ]; then
+  GG="${GARBAGE_GUARD:-$HOME/dotfiles/tools/garbage-guard/guard.py}"
+  if [ -f "$GG" ]; then
+    echo "🔍 pre-commit: decode-мусор..."
+    HOOK_DIR=$(dirname "$(readlink -f "$0")")
+    [ -f "$HOOK_DIR/garbage-guard.conf" ] && . "$HOOK_DIR/garbage-guard.conf"
+    EXCLUDE="${GG_EXCLUDE:-node_modules/|\.gradle/|/build/|^build/|^dist/}"
+    bad=0
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      case "$f" in *.md|*.txt|*.json|*.jsonl|*.jsonc) ;; *) continue ;; esac
+      printf '%s' "$f" | grep -Eq "$EXCLUDE" && continue
+      if ! git show ":$f" 2>/dev/null | python3 "$GG" check-text >/dev/null 2>&1; then
+        echo "❌ decode-мусор: $f"; bad=1
+      fi
+    done < <(staged_files)
+    [ "$bad" -eq 1 ] && die "decode-мусор в staged. Обход: GARBAGE_OK=1 (только whitelist-доказанные вхождения)."
+    echo "✅ decode-мусора нет"
+  fi
+fi
+
+echo "🎉 pre-commit: все гейты пройдены"
+exit 0
