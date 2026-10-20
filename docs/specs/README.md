@@ -27,7 +27,7 @@ timestamp: 2026-09-15
 - **Seed**: единственный путь — `seed.sql` внутри `init-db.js` на свежей БД.
   `scripts/seed.js` / `db:seed` удалены как дублирующие заглушки.
 - **CI/гейт**: `npm run ci` = `eslint(.ts,.tsx)` + `tsc --noEmit` + `jest` + `vite build`.
-  GitHub Actions — `.github/workflows/ci.yml` (Node 22). Jest в ESM-режиме, 9 интеграционных
+  GitHub Actions — `.github/workflows/ci.yml` (Node 22). Jest в ESM-режиме, 10 интеграционных
   тестов API в `tests/api.test.ts`.
 - **Локальная auth**: `LOCAL_AUTH_ENABLED=true` при `NODE_ENV=development` включает
   dev-only вход под сидовым admin без Telegram/Resend. В production он недоступен.

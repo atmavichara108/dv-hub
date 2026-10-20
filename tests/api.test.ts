@@ -53,6 +53,12 @@ describe("DV Hub API", () => {
     expect(await res.text()).toContain("DV Hub");
   });
 
+  it("reports service health", async () => {
+    const res = await request("/health");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ service: "dv-hub", status: "ok" });
+  });
+
   it("returns dashboard data", async () => {
     const res = await request("/api/dashboard");
     expect(res.status).toBe(200);

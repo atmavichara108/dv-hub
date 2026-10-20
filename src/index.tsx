@@ -18,6 +18,7 @@ export function createApp(env: AppBindings): Hono<Env> {
   const app = new Hono<Env>();
 
   app.use("/api/*", cors());
+  app.get("/health", (c) => c.json({ service: "dv-hub", status: "ok" }));
 
   // Подключаем роуты
   app.route("/auth", auth);
