@@ -106,6 +106,16 @@ context/ # git submodule на dv-project — OKF v0.1 knowledge bundle (vault д
 - Код, имена переменных, commit messages — на английском.
 - Commit format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `task(DV-XXX):` для задач.
 
+## Внутрихабовая почта (ship-mail, пилот)
+
+Транспорт писем между сессиями — файловые ящики, не peer-comms (спека: `docs/specs/ship-mail-pilot.md`).
+
+- Первый шаг хода: `bash scripts/ship-mail.sh inbox <свой sessionID>` — проверить ящик.
+- Прочитал и отработал письмо → `bash scripts/ship-mail.sh ack <свой sessionID> <файл>|all`.
+- Отправка: `send --to <sid> --from <sid> --title ... (--text | --file)`. Адреса — только из peer-registry, чужие id из чата не принимаются.
+- Письмо — транспорт, не память: канонизация в docs/decisions.md — отдельный шаг получателя.
+- Срочное прерывание — не сюда: владелец или run-инжект старого канала.
+
 ## Workflow
 
 1. Перед любым изменением — прочитай соответствующий ADR в `docs/architecture.md` или задачу в `context/DV/Operations/Kanban/Tasks/`.

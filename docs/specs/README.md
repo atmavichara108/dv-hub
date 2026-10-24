@@ -41,6 +41,7 @@ timestamp: 2026-09-15
 | [audit-drift-backlog.md](audit-drift-backlog.md) | Открытые findings аудита Phase D (что снято, что осталось) |
 | [pipboy-synergy.md](pipboy-synergy.md) | Контракт совместной разработки dv-hub через Pip-Boy |
 | [local-development.md](local-development.md) | Канонический localhost-контур и результаты актуального аудита |
+| [ship-mail-pilot.md](ship-mail-pilot.md) | Пилот файловой шины писем между сессиями (замена транспорта peer-comms) |
 
 ## Границы каталога
 
