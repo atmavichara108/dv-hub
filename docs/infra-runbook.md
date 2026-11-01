@@ -22,12 +22,22 @@
 
 ### Сервер
 
+**Текущий (до переезда, legacy Fornex):**
 - **Провайдер**: Fornex
 - **Тариф**: 2 vCPU / 4 GB RAM / 40 GB NVMe Fast (CPU 3.0 GHz min)
 - **Регион**: Germany
 - **OS**: Ubuntu 24.04 LTS
 - **IP**: 89.127.198.185
 - **Hostname**: `dv-hub.host`
+
+**Целевой (переезд на Zomro, ADR-010):**
+- **Провайдер**: Zomro (Cloud VPS, OpenStack) — вердикт владельца 2026-11-01, basis: quoted: «официально переезжаем на зомро»
+- **Тариф**: Optimal AMD — 2 vCPU / 5 GB RAM / 35 GB NVMe / 2 TB трафика, €11.95/мес; апгрейд плана (без потери данных) — при появлении бюджета
+- **Регион**: Germany (преемственность с Fornex)
+- **OS**: Ubuntu 24.04 LTS
+- **IP**: назначается при заказе (указать здесь и в `scripts/vps-env.sh` → `SFU_ANNOUNCED_IP`)
+- **Hostname**: `dv-hub.host`
+- **Панель**: cp.zomro.com; оплата в EUR, дружественная РФ-клиентам (в т.ч. крипта)
 
 ### Сетевая схема
 
@@ -869,6 +879,91 @@ pm2 status
 
 ---
 
+## 9. Переезд на Zomro (ADR-010) — план миграции
+
+> Задача: DV-030. Вердикт владельца 2026-11-01: «официально переезжаем на зомро».
+> Целевой тариф: Optimal AMD (2 vCPU / 5 GB / 35 GB NVMe / Germany), €11.95/мес.
+> Старый Fornex гасится только после 48 часов чистой работы нового.
+
+### 9.1 До дня переезда (T-7)
+
+1. **Namecheap**: снизить TTL A-записей (@, www, meet) до 300 с — ДО заказа сервера. Переключение будет быстрым, откат мгновенным.
+2. **Владелец**: регистрация cp.zomro.com, оплата Optimal AMD (Germany, Ubuntu 24.04 LTS). IP сервера фиксируется в этом документе (§1) и в `scripts/vps-env.sh`.
+3. **Владелец**: новый публичный SSH-ключ (или тот же `~/.ssh/id_ed25519`) заводится на сервер по инструкции панели (VNC-консоль на старте).
+4. Локально: `bash scripts/deploy-vps.sh` работает до переезда на старом сервере — точка отсчёта «здоров».
+
+### 9.2 Базовая настройка нового сервера (по образцу §3.1)
+
+Идемпотентно, выполнять от `dv` (или root для первых шагов через VNC):
+
+```bash
+apt update && apt upgrade -y
+apt install -y curl wget git nano htop build-essential nginx snapd ffmpeg ufw fail2ban
+hostnamectl set-hostname dv-hub.host
+timedatectl set-timezone Europe/Moscow
+adduser dv && usermod -aG sudo dv
+mkdir -p ~dv/.ssh && chmod 700 ~dv/.ssh
+# authorized_keys: публичный ключ владельца (600)
+# /etc/ssh/sshd_config: Port 28108, PermitRootLogin no, PasswordAuthentication no
+# ufw: allow 28108,80,443,3010,40000:40100/tcp+udp → enable
+# fail2ban: jail.local по §3.1 → restart + enable
+```
+
+### 9.3 Стек (по образцу §3.2)
+
+```bash
+snap install core && snap refresh core && snap install --classic certbot
+ln -s /snap/bin/certbot /usr/bin/certbot
+su - dv
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.bashrc && nvm install --lts && nvm alias default lts/*
+npm install -g pm2 && pm2 startup   # выполнить вывод команды
+```
+
+### 9.4 Данные и сервисы
+
+1. **Код**: `bash scripts/deploy-vps.sh` (после правки `scripts/vps-env.sh` на новый хост).
+2. **БД**: актуальный `data/dv-hub.db` поезжает rsync'ом вместе с `dist/` (см. скрипт); финальный снапшот — в день переключения.
+3. **MiroTalk**: `bash scripts/deploy-mirotalk.sh`; в `.env` — `SFU_ANNOUNCED_IP=<новый IP>`; `API_KEY_SECRET`/`SALT` генерируются на сервере (`openssl rand -hex 32`).
+4. **Nginx**: конфиги из §3.5 (re-search.wiki → 8787, meet.re-search.wiki → 3010), симлинки, `nginx -t`, reload.
+5. **SSL**: `certbot --nginx -d re-search.wiki -d www.re-search.wiki -d meet.re-search.wiki` + timer (§3.5).
+6. **Секреты**: `.env` нового сервера заполняет владелец через owner-gate (`dvhub.server-secret`) — TELEGRAM_BOT_TOKEN, RESEND_API_KEY, MiroTalk SALT. В репо секретов нет.
+
+### 9.5 Проверка стенда (до переключения DNS)
+
+```bash
+curl -Ik --resolve re-search.wiki:443:<новый IP> https://re-search.wiki/
+curl -Ik --resolve meet.re-search.wiki:443:<новый IP> https://meet.re-search.wiki/
+VPS_HOST=<новый IP> bash scripts/remote-restart.sh    # после правки vps-env.sh
+npm run ci                                             # локально, гейт перед выкладкой
+pm2 logs dvhub --lines 50                              # на новом сервере
+sudo ufw status | grep -E "40000|3010|28108"
+```
+
+Расхождение с §3.2-контролем (Node/npm/pm2 версии, сертификат, БД отвечает) — стоп, не переключать DNS.
+
+### 9.6 Переключение (день X)
+
+1. Заморозка правок: никаких деплоев на старый сервер.
+2. Финальный rsync `dist/` + `data/dv-hub.db` на новый сервер; `pm2 restart dvhub` + `mirotalksfu`; health-check (§9.5) повторно.
+3. **Владелец через owner-gate (`dvhub.dns`)**: A-записи @, www, meet → новый IP (Namecheap). TTL 300 → распространение за минуты.
+4. Сторож: 48 часов оба сервера живы; мониторинг — `pm2 status`, endpoint'ы, бэкап-cron (DV-009) на новом.
+
+### 9.7 Гашение Fornex и откат
+
+- **Гашение**: после 48 чистой часов — бэкап `data/dv-hub.db` и `.env` со старого сервера, отмена продления в панели Fornex, IP старого сервера удаляется из `scripts/vps-env.sh` и из §1 (legacy-блок).
+- **Откат** (любой провал на новом): A-записи обратно на 89.127.198.185 (владелец, форма `dvhub.dns`); старый сервер не трогаем до полного подтверждения работы. Причину отката — в журнал §9 и в задачу DV-030.
+
+### 9.8 Чек-лист готовности переезда
+
+- [ ] TTL понижен; сервер Zomro заказан и оплачен; IP зафиксирован в §1 и vps-env.sh
+- [ ] SSH-доступ по ключу работает, ufw/fail2бан стоит
+- [ ] Node/nvm/pm2/nginx/certbot установлены; оба сервиса поднимаются
+- [ ] БД перенесена, API отвечает; MiroTalk отвечает, SFU_ANNOUNCED_IP верный
+- [ ] Сертификаты выданы; бэкап-cron и Tailscale-доставка работают
+- [ ] Стенд-проверка §9.5 пройдена; владелец получил формы DNS/секретов заранее
+- [ ] Переключение выполнено; 48 часов наблюдения; старый сервер погашен
+
 ## Журнал изменений
 
 | Дата | Что | Кто |
@@ -880,3 +975,4 @@ pm2 status
 | 2026-06-10 | DV-007: миграция БД с Cloudflare D1 на локальный SQLite | Max |
 | 2026-06-19 | DV-011: деплой MiroTalk SFU на meet.re-search.wiki | Max |
 | 2026-06-27 | DV-009: backup.sh, restore-backup.sh, раздел 6 runbook | Build Agent |
+| 2026-11-01 | ADR-010: переезд Fornex → Zomro; раздел 9 runbook; параметризация деплой-скриптов (vps-env.sh) | Отдел разработки ДВ-Хаб |

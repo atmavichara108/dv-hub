@@ -1,11 +1,15 @@
 #!/bin/bash
+# Скрипт деплоя MiroTalk SFU. Хост/ключ/IP — из scripts/vps-env.sh
+# (ADR-010: переезд Fornex → Zomro). SFU_ANNOUNCED_IP задаётся
+# одноимённой env-переменной или в vps-env.sh, не хардкодом.
 set -euo pipefail
 
-VPS_USER="dv"
-VPS_HOST="re-search.wiki"
-VPS_PORT="28108"
-SSH_KEY="${HOME}/.ssh/id_ed25519"
-REMOTE_DIR="/opt/mirotalksfu"
+source "$(dirname "${BASH_SOURCE[0]}")/vps-env.sh"
+VPS_USER="${VPS_USER}"
+VPS_HOST="${VPS_HOST}"
+VPS_PORT="${VPS_PORT}"
+SSH_KEY="${SSH_KEY}"
+REMOTE_DIR="${MIROTALK_DIR}"
 
 echo "=== MiroTalk SFU Deploy → VPS ==="
 
@@ -39,8 +43,8 @@ HOST=0.0.0.0
 # Database
 DB_PATH=./data/mirotalk.db
 
-# MediaSoup
-SFU_ANNOUNCED_IP=89.127.198.185
+# MediaSoup (IP сервера, из vps-env.sh / env SFU_ANNOUNCED_IP)
+SFU_ANNOUNCED_IP=${SFU_ANNOUNCED_IP}
 
 # API
 API_KEY_SECRET=
@@ -111,7 +115,8 @@ REMOTE
 echo "=== Deploy complete ==="
 echo ""
 echo "Post-deploy manual steps:"
-echo "1. Edit /opt/mirotalksfu/.env and set SFU_ANNOUNCED_IP=89.127.198.185"
+echo "1. Edit /opt/mirotalksfu/.env and set SFU_ANNOUNCED_IP=${SFU_ANNOUNCED_IP}"
+echo "   (если сервер новый — обнови SFU_ANNOUNCED_IP в scripts/vps-env.sh)"
 echo "2. Set API_KEY_SECRET=$(openssl rand -hex 32)"
 echo "3. Run: pm2 restart mirotalksfu"
 echo "4. Open https://meet.re-search.wiki to verify"

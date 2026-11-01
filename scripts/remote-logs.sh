@@ -3,10 +3,8 @@
 # Check PM2 logs on VPS
 set -euo pipefail
 
-VPS_USER="dv"
-VPS_HOST="re-search.wiki"
-VPS_PORT="28108"
-SSH_KEY="${HOME}/.ssh/id_ed25519"
+# Конфиг — scripts/vps-env.sh (ADR-010: переезд Fornex → Zomro).
+source "$(dirname "${BASH_SOURCE[0]}")/vps-env.sh"
 
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
   export NVM_DIR="$HOME/.nvm"

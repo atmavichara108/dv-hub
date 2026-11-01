@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
 # scripts/deploy-vps.sh
-# Deploy DV Hub to Fornex VPS (re-search.wiki).
-# Run from project root: bash scripts/deploy-vps.sh
+# Deploy DV Hub to VPS (re-search.wiki). Провайдер-независимо:
+# хост/порт/ключ берутся из scripts/vps-env.sh (ADR-010: переезд
+# Fornex → Zomro, 2026-11-01). Run from project root: bash scripts/deploy-vps.sh
 #
 # Prerequisites:
-#   - SSH key configured for dv@re-search.wiki (port 28108)
+#   - SSH key configured for dv@re-search.wiki (port from vps-env.sh)
 #   - npm run build completed successfully
 
 set -euo pipefail
 
-VPS_USER="dv"
-VPS_HOST="re-search.wiki"
-VPS_PORT="28108"
-REMOTE_DIR="/opt/dv-hub"
-
-# SSH key for passwordless authentication
-# Generate with: ssh-keygen -t ed25519
-# Copy to server: ssh-copy-id -i ~/.ssh/id_ed25519 -p 28108 dv@re-search.wiki
-SSH_KEY="${HOME}/.ssh/id_ed25519"
+source "$(dirname "${BASH_SOURCE[0]}")/vps-env.sh"
+VPS_HOST="${VPS_HOST}"
+VPS_USER="${VPS_USER}"
+VPS_PORT="${VPS_PORT}"
+SSH_KEY="${SSH_KEY}"
+REMOTE_DIR="${REMOTE_DIR}"
 
 echo "=== DV Hub Deploy → VPS ==="
 
