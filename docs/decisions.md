@@ -70,6 +70,28 @@
 - Docker-сборка **не верифицирована** (команды docker* были запрещены в сессии).
   Первый прогон `docker compose up --build` — отдельная задача со своим гейтом.
 
+## Сессия Смотрителя ДВ-Хаб (2026-11-02, ship dv-hub)
+
+- **Канал:** ship-mail (Р-028) — первый шаг хода. Входящие инциденты peer-comms
+  закрыты; старый канал — резерв.
+- **Отдел разработки ДВ-Хаб** (`ses_e68e4eb9dffe9odzQJRgs7WgAi`, primary
+  `master-enginer`) привязан к `~/Projects/dv-hub`; зона — три репозитория
+  проекта: `dv-hub`, `dv-project`, `dv-quartz`.
+- **dv-quartz 404:** причина — ссылки главной на несуществующие корневые slug
+  (страницы лежат глубже: `Operations/`, `Movement/`, `Structure/`, `Site/`,
+  `Research/`). Фикс в `task/quartz-404-20261101` смёржен и запушен.
+- **DV-030 «Переезд на Zomro»:** спека оформлена в dv-project, контекст
+  синхронизирован. **Ветка НЕ в main**: зомро-ветка несёт infra-ядро
+  (ADR-010 + runbook §9 + параметризация деплоя), требует слова владельца.
+- **Инцидент CI:** `dv-project` sync упал на `Bad credentials` при checkout
+  dv-hub; корень — просроченный `HUB_PAT` (секрет владельца). Живая работа не
+  сломана, аварийного мержа не потребовалось.
+- **Слой памяти:** `memory/idea-graph/` (nodes/edges/protocol JSONL) — пилот
+  по корабельной схеме; в main не влит.
+- **Следующий фокус:** владелец решает мерж `task/dvhub-memory-layer-20261101`;
+  после — продлить `HUB_PAT`, затем порядок в dv-project
+  (`temp/wiki-spec.md`, `temp/transliteration.py`, отставание Kanban).
+
 ### Vault side
 
 - Canonical specs dv-hub закоммичены в Vault (`1e47b44`), но пуш Vault **отложен**:
