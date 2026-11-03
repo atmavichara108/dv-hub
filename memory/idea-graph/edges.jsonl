@@ -9,3 +9,4 @@
 {"id":"dvh-e-0009","graph":"stream","from":"dvh-n-0016","to":"dvh-n-0007","type":"about","status":"accepted","provenance":{"source":"owner-word","observed_at":"2026-11-01","scope":"session-migration","basis":"quoted"},"projection":["compact"]}
 {"id":"dvh-e-0010","graph":"stream","from":"dvh-n-0017","to":"dvh-n-0013","type":"scopes","status":"accepted","provenance":{"source":"owner-word","observed_at":"2026-11-01","scope":"session-tier","basis":"quoted"},"projection":["compact"]}
 {"id":"dvh-e-0011","graph":"stream","from":"dvh-n-0018","to":"dvh-n-0003","type":"empowers","status":"accepted","provenance":{"source":"owner-word","observed_at":"2026-11-01","scope":"session-ward","basis":"quoted"},"projection":["compact"]}
+{"id":"dvh-e-0012","graph":"proto","from":"dvh-n-0019","to":"dvh-n-0003","type":"binds","status":"accepted","provenance":{"source":"owner-word","observed_at":"2026-11-03","scope":"discipline-org","basis":"quoted"},"projection":["index"]}
