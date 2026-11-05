@@ -965,6 +965,55 @@ sudo ufw status | grep -E "40000|3010|28108"
 - [ ] Стенд-проверка §9.5 пройдена; владелец получил формы DNS/секретов заранее
 - [ ] Переключение выполнено; 48 часов наблюдения; старый сервер погашен
 
+## 10. TURN/STUN — coturn (DV-012, по факту)
+
+> ADR-007: coturn разворачивается ПО ФАКТУ жалоб на связь (симметричный NAT),
+> не упреждающе. Если жалобы есть — выполняем этот раздел на новом сервере
+> (или на текущем, если переезд ещё не сделан).
+
+### 10.1 Установка
+
+```bash
+bash scripts/deploy-coturn.sh
+```
+
+Скрипт: ставит coturn, генерирует `/etc/turnserver.secret` (32 байта, 600, в
+репо НЕ идёт), пишет `/etc/turnserver.conf` (порт 3478 tcp/udp + 5349 TLS,
+relay 40000-40100 совместно с MiroTalk media, `lt-cred-mech` + `use-auth-secret`),
+включает systemd-юнит, открывает порты в ufw.
+
+### 10.2 Доступы для MiroTalk
+
+При `lt-cred-mech` пароль — не сам секрет, а одноразовый HMAC. Сгенерировать:
+
+```bash
+SECRET="$(sudo cat /etc/turnserver.secret)"
+USER="dvhub"
+PASS="$(printf '%s' "$USER" | openssl dgst -binary -sha1 -hmac "$(printf '%s' "$SECRET" | xxd -p -c 64)" | base64)"
+# на всякий: python3 -c "import base64,hmac,hashlib;print(base64.b64encode(hmac.new(bytes.fromhex('$SECRET'),b'dvhub',hashlib.sha1).digest()).decode())"
+```
+
+В `/opt/mirotalksfu/.env`:
+
+```
+TURN_URL=turn:<IP-сервера>:3478?transport=udp
+TURN_USERNAME=dvhub
+TURN_CREDENTIAL=<сгенерированный PASS>
+```
+
+Затем `pm2 restart mirotalksfu`.
+
+### 10.3 Проверка
+
+```bash
+systemctl is-active coturn
+sudo ufw status | grep -E '3478|5349|40000'
+# на клиенте: тест звонка meet.re-search.wiki — ICE должно поднимать relay-кандидат
+```
+
+Откат: `sudo systemctl disable --now coturn`, убрать TURN_* из .env MiroTalk.
+Секрет при откате сохранить (переиспользуется при повторном включении).
+
 ## Журнал изменений
 
 | Дата | Что | Кто |
