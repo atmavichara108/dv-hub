@@ -34,7 +34,8 @@ ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE
     if [ -f ".env.template" ]; then
       cp .env.template .env
     else
-      cat > .env << 'ENVEOF'
+      # Heredoc НЕ в кавычках: ${SFU_ANNOUNCED_IP} подставляется из vps-env/env.
+      cat > .env <<ENVEOF
 # Server
 HTTP_PORT=3010
 HTTPS=false
@@ -65,12 +66,24 @@ ENVEOF
   grep -E "HTTP_PORT|HTTPS|SFU_ANNOUNCED_IP|API_KEY_SECRET" .env
 REMOTE
 
+# Step 2b: MiroTalk >= 2.7 требует app/src/config.js (из шаблона) и JWT_SECRET
+echo "→ Checking 2.7.x requirements (config.js / JWT_SECRET)..."
+ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  cd /opt/mirotalksfu
+  [ -f app/src/config.js ] || cp app/src/config.template.js app/src/config.js
+  if ! grep -qE "^JWT_SECRET=.{32,}" .env; then
+    sed -i "s/^JWT_SECRET=.*/JWT_SECRET=$(openssl rand -hex 32)                   # REQUIRED: min 32 chars/" .env
+    echo "JWT_SECRET generated"
+  fi
+  grep -E "^SFU_ANNOUNCED_IP=.+" .env >/dev/null || echo "WARN: SFU_ANNOUNCED_IP пуст — задай env SFU_ANNOUNCED_IP"
+REMOTE
+
 # Step 3: Install dependencies and build
 echo "→ Installing dependencies and building..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
   cd /opt/mirotalksfu
   source ~/.nvm/nvm.sh
-  nvm use 22
+  nvm use --lts
   npm ci
   npm run build:mediasoup-client
 REMOTE
@@ -80,7 +93,7 @@ echo "→ Starting/restarting MiroTalk SFU via PM2..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
   cd /opt/mirotalksfu
   source ~/.nvm/nvm.sh
-  nvm use 22
+  nvm use --lts
   pm2 delete mirotalksfu 2>/dev/null || true
   pm2 start npm --name mirotalksfu -- run start
   pm2 save
@@ -106,7 +119,7 @@ REMOTE
 echo "→ Verifying deployment..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
   source ~/.nvm/nvm.sh
-  nvm use 22
+  nvm use --lts
   pm2 status mirotalksfu
   sleep 3
   curl -I http://localhost:3010
