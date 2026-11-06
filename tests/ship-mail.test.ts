@@ -30,8 +30,20 @@ interface ExecError {
 
 let home: string;
 let registry: string;
+let snapshot: string;
+
+// Канон письма (05.11): разделы обязательны, иначе lint-letter отклоняет отправку.
+const LETTER_SECTIONS =
+  "\n\nСДЕЛАНО: тест-отправка\nЗАБЛОКИРОВАНО: нет\nЖДЁТ-ЗАБОТЫ: нет";
+
+let refCounter = 0;
 
 function run(args: string[]): RunResult {
+  // Канон Р-090: ref обязателен и уникален — добиваем автоматически.
+  if (args[0] === "send" && !args.includes("--ref")) {
+    refCounter += 1;
+    args = [...args, "--ref", `ship-mail-test-${refCounter}`];
+  }
   try {
     const stdout = execFileSync("bash", [SCRIPT, ...args], {
       encoding: "utf8",
@@ -39,6 +51,11 @@ function run(args: string[]): RunResult {
         ...process.env,
         SHIP_MAIL_HOME: home,
         SHIP_MAIL_REGISTRY: registry,
+        SHIP_MAIL_REGISTRY_SNAPSHOT: snapshot,
+        // Журналы писем/мандатов — в изоляции теста (иначе линт сверяется
+        // с боевой историей отправок машины разработчика/CI).
+        SHIP_MAIL_SENT_LOG: join(home, "sent.jsonl"),
+        SHIP_MAIL_MANDATE_LOG: join(home, "mandate-numbers.jsonl"),
       },
     });
     return { stdout, status: 0 };
@@ -72,6 +89,8 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "ship-mail-"));
   const regDir = mkdtempSync(join(tmpdir(), "ship-mail-registry-"));
   registry = join(regDir, "peer-registry.md");
+  snapshot = join(regDir, "registry.snapshot.md");
+  writeFileSync(snapshot, "", "utf8");
   const rows = [
     `| Тест-А | ${SID_A} | test | /tmp | test |`,
     `| Тест-Б | ${SID_B} | test | /tmp | test |`,
@@ -101,7 +120,7 @@ describe("ship-mail mailbox bus", () => {
       "--ref",
       "pilot-1",
       "--text",
-      "тело письма",
+      "тело письма" + LETTER_SECTIONS,
     ]);
     expect(res.status).toBe(0);
     expect(res.stdout).toContain("DELIVERED");
@@ -125,7 +144,7 @@ describe("ship-mail mailbox bus", () => {
       "--from",
       SID_A,
       "--text",
-      "одна и та же речь",
+      "одна и та же речь" + LETTER_SECTIONS,
     ]);
     expect(first.status).toBe(0);
     expect(inboxFiles(SID_B)).toHaveLength(1);
@@ -137,15 +156,15 @@ describe("ship-mail mailbox bus", () => {
       "--from",
       SID_A,
       "--text",
-      "одна и та же речь",
+      "одна и та же речь" + LETTER_SECTIONS,
     ]);
     expect(second.status).toBe(3);
     expect(inboxFiles(SID_B)).toHaveLength(1);
   });
 
   it("gives different letters different ids", () => {
-    run(["send", "--to", SID_B, "--from", SID_A, "--text", "первое"]);
-    run(["send", "--to", SID_B, "--from", SID_A, "--text", "второе"]);
+    run(["send", "--to", SID_B, "--from", SID_A, "--text", "первое" + LETTER_SECTIONS]);
+    run(["send", "--to", SID_B, "--from", SID_A, "--text", "второе" + LETTER_SECTIONS]);
     expect(inboxFiles(SID_B)).toHaveLength(2);
   });
 
@@ -159,7 +178,7 @@ describe("ship-mail mailbox bus", () => {
       "--title",
       "тема",
       "--text",
-      "прочти меня",
+      "прочти меня" + LETTER_SECTIONS,
     ]);
 
     const inbox = run(["inbox", SID_B]);
@@ -193,7 +212,7 @@ describe("ship-mail mailbox bus", () => {
       "--from",
       SID_A,
       "--text",
-      "в никуда",
+      "в никуда" + LETTER_SECTIONS,
     ]);
     expect(res.status).toBe(4);
     expect(existsSync(join(home, "inbox", SID_UNREGISTERED))).toBe(false);
@@ -207,7 +226,7 @@ describe("ship-mail mailbox bus", () => {
       "--from",
       SID_UNREGISTERED,
       "--text",
-      "подделка",
+      "подделка" + LETTER_SECTIONS,
     ]);
     expect(res.status).toBe(4);
     expect(inboxFiles(SID_B)).toHaveLength(0);
@@ -222,7 +241,7 @@ describe("ship-mail mailbox bus", () => {
       "--from",
       SID_A,
       "--text",
-      "нет реестра",
+      "нет реестра" + LETTER_SECTIONS,
     ]);
     expect(res.status).toBe(5);
     expect(inboxFiles(SID_B)).toHaveLength(0);
