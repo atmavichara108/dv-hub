@@ -68,17 +68,18 @@ function showLoginModal() {
         </button>`
       : ''}
 
-    <!-- Telegram Login -->
+    <!-- Telegram Login: официальный виджет (одна кнопка, без копирования ссылки).
+         Скрипт виджета вставляется динамически после рендера модалки
+         (script внутри innerHTML не исполняется). -->
     <div class="mb-6">
       <p class="text-xs text-ink-500 mb-3 font-medium">Через Telegram</p>
-      ${botUsername
-        ? `<button id="telegram-login-btn" class="w-full bg-[#2AABEE] hover:bg-[#229ED9] text-white px-4 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
-            <i class="fab fa-telegram-plane"></i>
-            <span>Войти через Telegram</span>
-           </button>
-           <div id="telegram-login-status" class="mt-2"></div>`
-        : `<p class="text-xs text-ink-400">Telegram вход не настроен</p>`
-      }
+      <div id="tg-widget-slot" class="min-h-[40px]"></div>
+      <div id="telegram-login-status" class="mt-2"></div>
+      <div id="telegram-login-fallback" class="hidden mt-3">
+        <button id="telegram-login-btn" class="w-full bg-ink-700 hover:bg-ink-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition">
+          <i class="fab fa-telegram-plane mr-2"></i>Резервный вход по ссылке
+        </button>
+      </div>
     </div>
 
     <div class="flex items-center gap-3 mb-6">
@@ -119,7 +120,46 @@ function showLoginModal() {
     }
   })
 
-  // Telegram login button — webhook-based flow with copy-to-clipboard
+  // ── Telegram Login Widget (основной путь, Р-106) ─────────────
+  // Виджет грузится динамически: script в innerHTML не исполняется.
+  const tgSlot = document.getElementById('tg-widget-slot')
+  if (!window.__TG_BOT_USERNAME__) {
+    if (tgSlot) tgSlot.innerHTML = '<p class="text-xs text-ink-400">Telegram вход не настроен</p>'
+  } else if (tgSlot) {
+    window.onTelegramAuth = async (user) => {
+      const statusEl = document.getElementById('telegram-login-status')
+      try {
+        if (statusEl) statusEl.innerHTML = '<p class="text-xs text-ink-400"><i class="fas fa-spinner fa-spin mr-1"></i>Завершаем вход...</p>'
+        const r = await axios.post('/auth/telegram', user)
+        currentUser = r.data.user
+        closeModal()
+        renderAuthNav()
+        toast('Вы вошли как ' + currentUser.name)
+        navigate(location.pathname, false)
+      } catch (e) {
+        const msg = e.response?.data?.error?.message || e.response?.data?.error || 'Ошибка входа'
+        if (statusEl) statusEl.innerHTML = `<p class="text-xs text-red-500"><i class="fas fa-exclamation-circle mr-1"></i>${msg}</p>`
+      }
+    }
+    const widgetScript = document.createElement('script')
+    widgetScript.async = true
+    widgetScript.src = 'https://telegram.org/js/telegram-widget.js?22'
+    widgetScript.setAttribute('data-telegram-login', window.__TG_BOT_USERNAME__)
+    widgetScript.setAttribute('data-size', 'large')
+    widgetScript.setAttribute('data-radius', '8')
+    widgetScript.setAttribute('data-userpic', 'false')
+    widgetScript.setAttribute('data-request-access', 'write')
+    widgetScript.setAttribute('data-onauth', 'onTelegramAuth(user)')
+    tgSlot.appendChild(widgetScript)
+    // Если telegram.org недоступен (блокировки) — показать резервный путь по ссылке.
+    setTimeout(() => {
+      if (!tgSlot.querySelector('iframe')) {
+        document.getElementById('telegram-login-fallback')?.classList.remove('hidden')
+      }
+    }, 3000)
+  }
+
+  // Резервный путь (deep-link + polling) — только если виджет не загрузился
   const tgBtn = document.getElementById('telegram-login-btn')
   if (tgBtn) {
     tgBtn.addEventListener('click', async () => {
