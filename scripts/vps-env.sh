@@ -20,10 +20,9 @@
 : "${MIROTALK_DIR:=/opt/mirotalksfu}"
 
 # Публичный IP сервера для MediaSoup (SFU_ANNOUNCED_IP в .env MiroTalk).
-# Fornex (legacy): 89.127.198.185.
-# Zomro Optimal AMD (Germany): задаётся при переезде из панели Zomro,
-# НЕ хранить в репо после переключения — ставить через env на машине,
-# с которой запускается деплой.
+# Zomro NL-3 (факт заказа 2026-11-05, вердикт владельца): 188.137.182.91.
+# До переключения дефолты остаются на текущем Fornex; на новом сервере
+# деплой идёт с env: VPS_HOST=188.137.182.91 SFU_ANNOUNCED_IP=188.137.182.91
 : "${SFU_ANNOUNCED_IP:=89.127.198.185}"
 
 export VPS_USER VPS_HOST VPS_PORT SSH_KEY REMOTE_DIR MIROTALK_DIR SFU_ANNOUNCED_IP

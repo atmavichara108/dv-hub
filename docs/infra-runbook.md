@@ -33,9 +33,9 @@
 **Целевой (переезд на Zomro, ADR-010):**
 - **Провайдер**: Zomro (Cloud VPS, OpenStack) — вердикт владельца 2026-11-01, basis: quoted: «официально переезжаем на зомро»
 - **Тариф**: Optimal AMD — 2 vCPU / 5 GB RAM / 35 GB NVMe / 2 TB трафика, €11.95/мес; апгрейд плана (без потери данных) — при появлении бюджета
-- **Регион**: Germany (преемственность с Fornex)
+- **Регион**: Netherlands-3 (Zomro DC) — вердикт владельца 2026-11-05, basis: quoted (письмо Смотрителя ad62f075b058); заменил Germany из первой фиксации ADR-010
 - **OS**: Ubuntu 24.04 LTS
-- **IP**: назначается при заказе (указать здесь и в `scripts/vps-env.sh` → `SFU_ANNOUNCED_IP`)
+- **IP**: 188.137.182.91 (Optimal AMD NL-3, открыт 2026-11-05; указан в `scripts/vps-env.sh` как SFU_ANNOUNCED_IP-reference, деплой — через env VPS_HOST=188.137.182.91)
 - **Hostname**: `dv-hub.host`
 - **Панель**: cp.zomro.com; оплата в EUR, дружественная РФ-клиентам (в т.ч. крипта)
 
@@ -882,13 +882,14 @@ pm2 status
 ## 9. Переезд на Zomro (ADR-010) — план миграции
 
 > Задача: DV-030. Вердикт владельца 2026-11-01: «официально переезжаем на зомро».
-> Целевой тариф: Optimal AMD (2 vCPU / 5 GB / 35 GB NVMe / Germany), €11.95/мес.
+> Локация: Netherlands-3 (вердикт владельца 2026-11-05). Тариф: Optimal AMD
+> (2 vCPU / 5 GB / 35 GB NVMe), €11.95/мес.
 > Старый Fornex гасится только после 48 часов чистой работы нового.
 
 ### 9.1 До дня переезда (T-7)
 
 1. **Namecheap**: снизить TTL A-записей (@, www, meet) до 300 с — ДО заказа сервера. Переключение будет быстрым, откат мгновенным.
-2. **Владелец**: регистрация cp.zomro.com, оплата Optimal AMD (Germany, Ubuntu 24.04 LTS). IP сервера фиксируется в этом документе (§1) и в `scripts/vps-env.sh`.
+2. **Владелец**: регистрация cp.zomro.com, оплата Optimal AMD (Netherlands-3, Ubuntu 24.04 LTS — вердикт локации 05.11). IP сервера фиксируется в этом документе (§1) и в `scripts/vps-env.sh`.
 3. **Владелец**: новый публичный SSH-ключ (или тот же `~/.ssh/id_ed25519`) заводится на сервер по инструкции панели (VNC-консоль на старте).
 4. Локально: `bash scripts/deploy-vps.sh` работает до переезда на старом сервере — точка отсчёта «здоров».
 
@@ -963,6 +964,55 @@ sudo ufw status | grep -E "40000|3010|28108"
 - [ ] Сертификаты выданы; бэкап-cron и Tailscale-доставка работают
 - [ ] Стенд-проверка §9.5 пройдена; владелец получил формы DNS/секретов заранее
 - [ ] Переключение выполнено; 48 часов наблюдения; старый сервер погашен
+
+## 10. TURN/STUN — coturn (DV-012, по факту)
+
+> ADR-007: coturn разворачивается ПО ФАКТУ жалоб на связь (симметричный NAT),
+> не упреждающе. Если жалобы есть — выполняем этот раздел на новом сервере
+> (или на текущем, если переезд ещё не сделан).
+
+### 10.1 Установка
+
+```bash
+bash scripts/deploy-coturn.sh
+```
+
+Скрипт: ставит coturn, генерирует `/etc/turnserver.secret` (32 байта, 600, в
+репо НЕ идёт), пишет `/etc/turnserver.conf` (порт 3478 tcp/udp + 5349 TLS,
+relay 40000-40100 совместно с MiroTalk media, `lt-cred-mech` + `use-auth-secret`),
+включает systemd-юнит, открывает порты в ufw.
+
+### 10.2 Доступы для MiroTalk
+
+При `lt-cred-mech` пароль — не сам секрет, а одноразовый HMAC. Сгенерировать:
+
+```bash
+SECRET="$(sudo cat /etc/turnserver.secret)"
+USER="dvhub"
+PASS="$(printf '%s' "$USER" | openssl dgst -binary -sha1 -hmac "$(printf '%s' "$SECRET" | xxd -p -c 64)" | base64)"
+# на всякий: python3 -c "import base64,hmac,hashlib;print(base64.b64encode(hmac.new(bytes.fromhex('$SECRET'),b'dvhub',hashlib.sha1).digest()).decode())"
+```
+
+В `/opt/mirotalksfu/.env`:
+
+```
+TURN_URL=turn:<IP-сервера>:3478?transport=udp
+TURN_USERNAME=dvhub
+TURN_CREDENTIAL=<сгенерированный PASS>
+```
+
+Затем `pm2 restart mirotalksfu`.
+
+### 10.3 Проверка
+
+```bash
+systemctl is-active coturn
+sudo ufw status | grep -E '3478|5349|40000'
+# на клиенте: тест звонка meet.re-search.wiki — ICE должно поднимать relay-кандидат
+```
+
+Откат: `sudo systemctl disable --now coturn`, убрать TURN_* из .env MiroTalk.
+Секрет при откате сохранить (переиспользуется при повторном включении).
 
 ## Журнал изменений
 
