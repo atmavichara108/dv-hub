@@ -788,7 +788,12 @@ pm2 restart dvhub
 - [ ] `TAILSCALE_IP=...` добавлен в `/opt/dv-hub/.env`
 - [ ] Директория `/mnt/backups/dv-hub/` создана на локальном компе
 - [ ] Cron установлен (`crontab -e` → `0 3 * * 0 /opt/dv-hub/scripts/backup.sh`)
-- [ ] Ручной тест: запустить `bash /opt/dv-hub/scripts/backup.sh` — архив доезжает до локального компа
+- [x] Tailscale на VPS и на приёмнике (ecommunity108 100.121.185.24; сервер dv-hub-nl3 100.123.51.13)
+- [x] `TAILSCALE_IP=100.121.185.24` и `REMOTE_PATH=/home/rudra/backups/dv-hub/` в cron сервера (`0 3 * * 0`)
+- [x] Тест пройден 06.11 17:01 UTC: архив dv-hub-full-*.tar.gz доехал
+- [ ] Tailscale auth-key сервера годен 90 дней — ре-кей после 2027-02-04
+- [x] `REMOTE_PORT` в scripts/backup.sh — порт приёмника параметром (по умолчанию 22)
+- [x] Ручной тест: запустить `bash /opt/dv-hub/scripts/backup.sh` — архив доезжает до локального компа
 
 ---
 
