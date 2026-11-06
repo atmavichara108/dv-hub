@@ -38,6 +38,13 @@ for r in runs:
     grep -q "^${id}$" "$STATE" && continue
     echo "${id}" >>"$STATE"
     echo "${STAMP} FAIL ${repo} ${wf} run=${id} sha=${sha} at=${created}" >>"$LOG"
+    # Двойная защита от дублей: состояние стёрто — титул ищется среди открытых issue.
+    existing="$(gh issue list --repo "$repo" --state open --search "run ${id} in:title" --limit 1 \
+      --json number --jq '.[0].number' 2>/dev/null || true)"
+    if [ -n "$existing" ]; then
+      echo "${STAMP} SKIP-DUP ${repo} run=${id} issue=#${existing}" >>"$LOG"
+      continue
+    fi
     tail="$(gh run view "$id" --repo "$repo" --log-failed 2>/dev/null | tail -25)"
     title="[CI-watch] ${repo}: ${wf} упал (run ${id})"
     body="Автоматический сторож CI ДВ-Хаб зафиксировал новое падение.
