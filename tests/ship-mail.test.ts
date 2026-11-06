@@ -163,8 +163,24 @@ describe("ship-mail mailbox bus", () => {
   });
 
   it("gives different letters different ids", () => {
-    run(["send", "--to", SID_B, "--from", SID_A, "--text", "первое" + LETTER_SECTIONS]);
-    run(["send", "--to", SID_B, "--from", SID_A, "--text", "второе" + LETTER_SECTIONS]);
+    run([
+      "send",
+      "--to",
+      SID_B,
+      "--from",
+      SID_A,
+      "--text",
+      "первое" + LETTER_SECTIONS,
+    ]);
+    run([
+      "send",
+      "--to",
+      SID_B,
+      "--from",
+      SID_A,
+      "--text",
+      "второе" + LETTER_SECTIONS,
+    ]);
     expect(inboxFiles(SID_B)).toHaveLength(2);
   });
 
