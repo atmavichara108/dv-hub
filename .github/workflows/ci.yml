@@ -26,7 +26,7 @@ jobs:
         run: |
           CANON=/home/rudra/dotfiles/tools/ship-mail
           sudo mkdir -p "$CANON"
-          for tool in lint_letter.py mandate_number.py; do
+          for tool in ship-mail.sh lint_letter.py mandate_number.py; do
             curl -fsSL "https://raw.githubusercontent.com/atmavichara108/dotfiles/main/tools/ship-mail/$tool" -o "$CANON/$tool"
           done
           ls -la "$CANON"
