@@ -11,6 +11,7 @@ LOG_FILE="/opt/dv-hub/backups/backup.log"
 
 # Читаем конфиг из .env если есть
 TAILSCALE_IP="${TAILSCALE_IP:-}"
+REMOTE_PORT="${REMOTE_PORT:-22}"
 REMOTE_USER="${REMOTE_USER:-rudra}"
 REMOTE_PATH="${REMOTE_PATH:-/mnt/backups/dv-hub/}"
 LOCAL_RETENTION="${LOCAL_RETENTION:-4}"  # сколько копий хранить локально
@@ -48,7 +49,7 @@ tar czf "$BACKUP_DIR/dv-hub-full-$TIMESTAMP.tar.gz" \
 # 5. Send to remote via Tailscale (if configured)
 if [ -n "$TAILSCALE_IP" ]; then
   log "Sending to remote ($TAILSCALE_IP)..."
-  if rsync -avz -e "ssh -o StrictHostKeyChecking=accept-new" \
+  if rsync -avz -e "ssh -p ${REMOTE_PORT} -o StrictHostKeyChecking=accept-new" \
     "$BACKUP_DIR/dv-hub-full-$TIMESTAMP.tar.gz" \
     "${REMOTE_USER}@${TAILSCALE_IP}:${REMOTE_PATH}" 2>> "$LOG_FILE"; then
     log "  ✅ Remote copy successful"
