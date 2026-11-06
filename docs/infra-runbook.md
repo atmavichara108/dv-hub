@@ -1025,6 +1025,7 @@ sudo ufw status | grep -E '3478|5349|40000'
 - Бэкап: cron `0 3 * * 0 backup.sh` поставлен; offsite-rsync ждёт TAILSCALE_IP в .env.
 - Стенд проверен через `--noproxy` (в среде primary VPN-прокси — стенд-чеки через него врут: отвечает чужой nginx 1.24).
 - Дальше по §9.6: A-записи Namecheap (владелец, инструкция выдана) → certbot SSL → проверка → 48ч → гашение Fornex.
+- **Сторожа на machine приёмника:** cron в этой ОС не запущен (`systemctl is-active cron` → inactive), поэтому наблюдение переведено на systemd --user: `dvhub-ci-watch.timer` (*/15) и `dvhub-migration-watch.timer` (*/30), юниты в `~/.config/systemd/user/`. При переносе на другой хост — проверять демон cron или аналогично поднимать user-timer.
 
 ## Журнал изменений
 
