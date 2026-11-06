@@ -45,6 +45,15 @@ for r in runs:
       echo "${STAMP} SKIP-DUP ${repo} run=${id} issue=#${existing}" >>"$LOG"
       continue
     fi
+    # Одно issue на workflow: повторы того же действия — комментарием в открытый.
+    tracker="$(gh issue list --repo "$repo" --state open --search "[CI-watch] ${repo}: ${wf} in:title" --limit 1 \
+      --json number --jq '.[0].number' 2>/dev/null || true)"
+    if [ -n "$tracker" ]; then
+      gh issue comment "$tracker" --repo "$repo" --body "Ещё одно падение того же действия: run ${id}, sha ${sha}, ${created}." >/dev/null 2>&1 \
+        && echo "${STAMP} COMMENTED ${repo} run=${id} -> issue=#${tracker}" >>"$LOG" \
+        || echo "${STAMP} COMMENT-FAILED ${repo} run=${id}" >>"$LOG"
+      continue
+    fi
     tail="$(gh run view "$id" --repo "$repo" --log-failed 2>/dev/null | tail -25)"
     title="[CI-watch] ${repo}: ${wf} упал (run ${id})"
     body="Автоматический сторож CI ДВ-Хаб зафиксировал новое падение.
