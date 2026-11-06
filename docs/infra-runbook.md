@@ -76,8 +76,8 @@ flowchart LR
 
 - Пользователь: `dv` (не root)
 - Аутентификация: только ключ, парольный вход отключён
-- Порт: 28108 (нестандартный, стандартный 22 закрыт)
-- Команда: `ssh -p 28108 dv@re-search.wiki`
+- Порт: **22** на новом сервере Zomro (план 28108 отменён: provider фильтрует 28108 снаружи, см. §11). Старый Fornex: 28108.
+- Команда (новый): `ssh -p 22 dv@188.137.182.91`; (старый: `ssh -p 28108 dv@re-search.wiki`)
 - Ключи: см. `DV/Site/keys-passwords.mdenc` (зашифрованный файл в волте, не в репо)
 
 ### Кто имеет доступ
@@ -1014,6 +1014,18 @@ sudo ufw status | grep -E '3478|5349|40000'
 Откат: `sudo systemctl disable --now coturn`, убрать TURN_* из .env MiroTalk.
 Секрет при откате сохранить (переиспользуется при повторном включении).
 
+## 11. Переходный период (06.11.2026) — стенд Zomro поднят, DNS не переключён
+
+**Факты:**
+- Сервер 188.137.182.91 (Optimal AMD NL-3) получен 06.11; доступ по ключу, hostname dv-hub.host, tz Europe/Moscow.
+- **Отклонение от плана (зафиксировано):** порт 28108 фильтруется provider'ом снаружи (sshd слушает, пакеты не доходят). SSH оставлен на **22** с `PasswordAuthentication no` + fail2ban + ufw (22/80/443/3010/3478/40000-40100 tcp+udp). Порты MiroTalk/TURN открыты заранее (DV-012 подготовка).
+- Стек: certbot 5.9 (snap), Node v26.13.0 (nvm), PM2 7.1.2 (autostart systemd).
+- Сервисы: dvhub online (health 200), mirotalksfu online (3010 200; .env: SFU_ANNOUNCED_IP=188.137.182.91, сгенерированы API_KEY_SECRET/JWT_SECRET на сервере), Nginx перед обоими (HTTP-only).
+- Побочные дефекты версии 2.7.65 MiroTalk (сравнение со старым 0.39.7): требуется `app/src/config.js` из `config.template.js`, обязателен `JWT_SECRET` в .env; деплой-скрипт `deploy-mirotalk.sh` доработан точечно на сервере, правка самого скрипта — TODO при следующем касании.
+- Бэкап: cron `0 3 * * 0 backup.sh` поставлен; offsite-rsync ждёт TAILSCALE_IP в .env.
+- Стенд проверен через `--noproxy` (в среде primary VPN-прокси — стенд-чеки через него врут: отвечает чужой nginx 1.24).
+- Дальше по §9.6: A-записи Namecheap (владелец, инструкция выдана) → certbot SSL → проверка → 48ч → гашение Fornex.
+
 ## Журнал изменений
 
 | Дата | Что | Кто |
@@ -1026,3 +1038,6 @@ sudo ufw status | grep -E '3478|5349|40000'
 | 2026-06-19 | DV-011: деплой MiroTalk SFU на meet.re-search.wiki | Max |
 | 2026-06-27 | DV-009: backup.sh, restore-backup.sh, раздел 6 runbook | Build Agent |
 | 2026-11-01 | ADR-010: переезд Fornex → Zomro; раздел 9 runbook; параметризация деплой-скриптов (vps-env.sh) | Отдел разработки ДВ-Хаб |
+| 2026-11-05 | Локация: Netherlands-3 (вердикт владельца) вместо Germany в ADR-010/§1/§9 | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | DV-012: подготовка coturn (скрипт + §10) | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | Стенд Zomro поднят: ufw/fail2ban/Node26/PM2/certbot, dvhub+MiroTalk+Nginx online, бэкап-cron; SSH на 22 (отклонение, §11); ждёт DNS-переключения | Отдел разработки ДВ-Хаб |
