@@ -55,7 +55,7 @@ ${tail}
 \`\`\`
 
 Разбор — линия Отдела разработки ДВ-Хаб (Master-Enginer)."
-    gh issue create --repo "$repo" --title "$title" --body "$body" --label "ci" >/dev/null 2>&1 \
+    gh issue create --repo "$repo" --title "$title" --body "$body" >/dev/null 2>&1 \
       && echo "${STAMP} ISSUE ${repo} run=${id}" >>"$LOG" \
       || echo "${STAMP} ISSUE-FAILED ${repo} run=${id}" >>"$LOG"
   done
