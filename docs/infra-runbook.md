@@ -35,7 +35,7 @@
 - **Тариф**: Optimal AMD — 2 vCPU / 5 GB RAM / 35 GB NVMe / 2 TB трафика, €11.95/мес; апгрейд плана (без потери данных) — при появлении бюджета
 - **Регион**: Netherlands-3 (Zomro DC) — вердикт владельца 2026-11-05, basis: quoted (письмо Смотрителя ad62f075b058); заменил Germany из первой фиксации ADR-010
 - **OS**: Ubuntu 24.04 LTS
-- **IP**: назначается при заказе (указать здесь и в `scripts/vps-env.sh` → `SFU_ANNOUNCED_IP`)
+- **IP**: 188.137.182.91 (Optimal AMD NL-3, открыт 2026-11-05; указан в `scripts/vps-env.sh` как SFU_ANNOUNCED_IP-reference, деплой — через env VPS_HOST=188.137.182.91)
 - **Hostname**: `dv-hub.host`
 - **Панель**: cp.zomro.com; оплата в EUR, дружественная РФ-клиентам (в т.ч. крипта)
 
