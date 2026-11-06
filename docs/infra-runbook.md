@@ -1018,7 +1018,7 @@ sudo ufw status | grep -E '3478|5349|40000'
 
 **Факты:**
 - Сервер 188.137.182.91 (Optimal AMD NL-3) получен 06.11; доступ по ключу, hostname dv-hub.host, tz Europe/Moscow.
-- **Отклонение от плана (зафиксировано):** порт 28108 фильтруется provider'ом снаружи (sshd слушает, пакеты не доходят). SSH оставлен на **22** с `PasswordAuthentication no` + fail2ban + ufw (22/80/443/3010/3478/40000-40100 tcp+udp). Порты MiroTalk/TURN открыты заранее (DV-012 подготовка).
+- **Отклонение от плана (СНЯТО 06.11 вечером):** первая диагностика «провайдер фильтрует 28108» была **ошибкой** — Zomro подтвердил, что порт открыт, и фактический вход на 28108 работает. Реальные причины поломки были две: (1) Ubuntu 24.04 ssh.socket (socket-activation) перебивал порты из sshd_config — отключён (`systemctl disable --now ssh.socket`); (2) отсутствие /run/sshd в ручных запусках. **Итог: SSH — на 28108 (key-only), 22 тоже открыт** (страховочный, ufw 22+28108, PasswordAuthentication no, fail2ban).
 - Стек: certbot 5.9 (snap), Node v26.13.0 (nvm), PM2 7.1.2 (autostart systemd).
 - Сервисы: dvhub online (health 200), mirotalksfu online (3010 200; .env: SFU_ANNOUNCED_IP=188.137.182.91, сгенерированы API_KEY_SECRET/JWT_SECRET на сервере), Nginx перед обоими (HTTP-only).
 - Побочные дефекты версии 2.7.65 MiroTalk (сравнение со старым 0.39.7): требуется `app/src/config.js` из `config.template.js`, обязателен `JWT_SECRET` в .env; деплой-скрипт `deploy-mirotalk.sh` доработан точечно на сервере, правка самого скрипта — TODO при следующем касании.

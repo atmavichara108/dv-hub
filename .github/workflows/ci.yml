@@ -19,5 +19,16 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # scripts/ship-mail.sh — симлинк на канон в dotfiles (SSOT транспорта).
+      # В CI цель симлинка не существует → материализуем два линт-инструмента
+      # канона по их публичному пути (fail-closed guard иначе не пустит тесты).
+      - name: Materialize ship-mail canon tools (symlink target)
+        run: |
+          CANON=/home/rudra/dotfiles/tools/ship-mail
+          sudo mkdir -p "$CANON"
+          for tool in ship-mail.sh lint_letter.py mandate_number.py; do
+            curl -fsSL "https://raw.githubusercontent.com/atmavichara108/dotfiles/main/tools/ship-mail/$tool" -o "$CANON/$tool"
+          done
+          ls -la "$CANON"
+      - run: npm run test
       - run: npm run build
