@@ -78,6 +78,34 @@ ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE
   grep -E "^SFU_ANNOUNCED_IP=.+" .env >/dev/null || echo "WARN: SFU_ANNOUNCED_IP пуст — задай env SFU_ANNOUNCED_IP"
 REMOTE
 
+# Step 2c: DV-045 п.3/п.4 — in-band FEC для Opus (переживает потерю пакетов).
+# config.js пересоздаётся из шаблона при деплое, поэтому патч применяем здесь.
+echo "→ Applying Opus FEC patch (audio robustness)..."
+ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
+  cd /opt/mirotalksfu
+  python3 - <<'PY2'
+import io
+p = "app/src/config.js"
+s = io.open(p, encoding="utf-8").read()
+if "useinbandfec" in s:
+    print("FEC already enabled")
+else:
+    old = """                    clockRate: 48000, // Standard sample rate for WebRTC
+                    channels: 2, // Stereo audio
+                },"""
+    new = """                    clockRate: 48000, // Standard sample rate for WebRTC
+                    channels: 2, // Stereo audio
+                    // DV-045 п.3/п.4: in-band FEC + без DTX (не режем тихую речь)
+                    parameters: { useinbandfec: 1, usedtx: 0 },
+                },"""
+    if old in s:
+        io.open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+        print("FEC patch applied")
+    else:
+        print("WARN: FEC anchor not found — проверь версию MiroTalk")
+PY2
+REMOTE
+
 # Step 3: Install dependencies and build
 echo "→ Installing dependencies and building..."
 ssh -i "${SSH_KEY}" -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" bash -s <<'REMOTE'
