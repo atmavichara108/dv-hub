@@ -204,9 +204,7 @@ async function renderRoomDetail(id) {
           </button>
         </div>
       </div>
-      <div id="mirotalk-container" class="mt-4 hidden">
-        <iframe id="mirotalk-iframe" src="" allow="camera; microphone; display-capture; fullscreen" style="height: 520px; width: 100%; border-radius: 8px; border: none;" allowfullscreen></iframe>
-      </div>
+      <p class="text-ink-300 text-xs mt-2"><i class="fas fa-window-restore mr-1"></i>Звонок откроется в плавающем окне — можно листать платформу, не выпадая из созвона.</p>
     </div>
 
     <!-- Диалектика: тезис / антитезис / синтез -->
@@ -317,6 +315,8 @@ async function renderRoomDetail(id) {
 
   // Загружаем сообщения чата
   loadRoomMessages(id)
+  // Кнопка звонка показывает реальное состояние (звонок живёт вне #app)
+  syncMirotalkButton(id)
 
 }
 
@@ -345,28 +345,92 @@ async function mirotalkFullscreen() {
   }
 }
 
+// Звонок живёт в плавающей панели на document.body, ВНЕ #app.
+// Причина: SPA перерисовывает #app при любом переходе, iframe внутри
+// #app уничтожался — «выкидывает из созвона при взаимодействии с платформой».
 function toggleMiroTalk(roomId, userName) {
-  const container = document.getElementById('mirotalk-container')
-  const btn = document.getElementById('mirotalk-toggle-btn')
-
-  if (container.classList.contains('hidden')) {
-    // Запускаем звонок
-    const displayName = userName || 'Гость'
-    const iframe = document.getElementById('mirotalk-iframe')
-    iframe.src = `https://meet.re-search.wiki/join?room=dv-room-${roomId}&name=${displayName}`
-    container.classList.remove('hidden')
-    btn.innerHTML = '<i class="fas fa-phone-slash mr-1.5"></i>Завершить'
-    btn.classList.remove('bg-accent-500', 'hover:bg-accent-600')
-    btn.classList.add('bg-red-500', 'hover:bg-red-600')
+  if (window.__dvCall && window.__dvCall.roomId === roomId) {
+    endMiroTalk()
   } else {
-    // Завершаем звонок
-    const iframe = document.getElementById('mirotalk-iframe')
-    iframe.src = ''
-    container.classList.add('hidden')
-    btn.innerHTML = '<i class="fas fa-phone-alt mr-1.5"></i>Начать звонок'
-    btn.classList.remove('bg-red-500', 'hover:bg-red-600')
-    btn.classList.add('bg-accent-500', 'hover:bg-accent-600')
+    startMiroTalk(roomId, userName)
   }
+  syncMirotalkButton(roomId)
+}
+
+function startMiroTalk(roomId, userName) {
+  // Предыдущий звонок в другой комнате — закрываем.
+  if (window.__dvCall) endMiroTalk(false)
+
+  const panel = document.createElement('div')
+  panel.id = 'dv-call-panel'
+  panel.style.cssText = [
+    'position:fixed', 'right:16px', 'bottom:16px', 'z-index:9999',
+    'width:min(560px, calc(100vw - 32px))', 'height:min(420px, 60vh)',
+    'background:#0b1220', 'border-radius:12px', 'overflow:hidden',
+    'box-shadow:0 12px 40px rgba(0,0,0,.45)', 'display:flex',
+    'flex-direction:column', 'border:1px solid rgba(255,255,255,.12)'
+  ].join(';')
+
+  const bar = document.createElement('div')
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#111a2b;color:#e5e7eb;font-size:12px'
+  bar.innerHTML = `
+    <span style="opacity:.8">Звонок · комната ${roomId}</span>
+    <span style="flex:1"></span>
+    <button id="dv-call-min" title="Свернуть" style="background:#1f2937;color:#e5e7eb;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">—</button>
+    <button id="dv-call-fs" title="Во весь экран" style="background:#1f2937;color:#e5e7eb;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">⛶</button>
+    <button id="dv-call-end" title="Завершить" style="background:#dc2626;color:#fff;border:0;border-radius:6px;padding:2px 8px;cursor:pointer">✕</button>`
+
+  const frame = document.createElement('iframe')
+  frame.id = 'mirotalk-iframe'
+  frame.allow = 'camera; microphone; display-capture; fullscreen; autoplay'
+  frame.allowFullscreen = true
+  frame.style.cssText = 'border:0;flex:1;width:100%;background:#000'
+  frame.src = `https://meet.re-search.wiki/join?room=dv-room-${roomId}&name=${encodeURIComponent(userName || 'Гость')}`
+
+  panel.appendChild(bar)
+  panel.appendChild(frame)
+  document.body.appendChild(panel)
+
+  window.__dvCall = { roomId: roomId, minimized: false }
+
+  panel.querySelector('#dv-call-end').addEventListener('click', () => endMiroTalk())
+  panel.querySelector('#dv-call-fs').addEventListener('click', () => {
+    (frame.requestFullscreen || frame.webkitRequestFullscreen || function () {}).call(frame)
+  })
+  panel.querySelector('#dv-call-min').addEventListener('click', () => {
+    const min = !window.__dvCall.minimized
+    window.__dvCall.minimized = min
+    frame.style.display = min ? 'none' : 'block'
+    panel.style.height = min ? '36px' : 'min(420px, 60vh)'
+  })
+
+  toast('Звонок открыт в плавающем окне — платформа больше не выкинет')
+}
+
+function endMiroTalk(syncBtn = true) {
+  const panel = document.getElementById('dv-call-panel')
+  if (panel) {
+    const frame = panel.querySelector('#mirotalk-iframe')
+    if (frame) frame.src = 'about:blank'
+    panel.remove()
+  }
+  const roomId = window.__dvCall ? window.__dvCall.roomId : null
+  window.__dvCall = null
+  if (syncBtn && roomId) syncMirotalkButton(roomId)
+}
+
+// Кнопка в комнате отражает реальное состояние звонка.
+function syncMirotalkButton(roomId) {
+  const btn = document.getElementById('mirotalk-toggle-btn')
+  if (!btn) return
+  const active = !!(window.__dvCall && window.__dvCall.roomId === roomId)
+  btn.innerHTML = active
+    ? '<i class="fas fa-phone-slash mr-1.5"></i>Завершить'
+    : '<i class="fas fa-phone-alt mr-1.5"></i>Начать звонок'
+  btn.classList.toggle('bg-red-500', active)
+  btn.classList.toggle('hover:bg-red-600', active)
+  btn.classList.toggle('bg-accent-500', !active)
+  btn.classList.toggle('hover:bg-accent-600', !active)
 }
 
 // ── Вспомогательные функции комнат ────────────────────────────
