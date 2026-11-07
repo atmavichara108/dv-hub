@@ -788,7 +788,12 @@ pm2 restart dvhub
 - [ ] `TAILSCALE_IP=...` добавлен в `/opt/dv-hub/.env`
 - [ ] Директория `/mnt/backups/dv-hub/` создана на локальном компе
 - [ ] Cron установлен (`crontab -e` → `0 3 * * 0 /opt/dv-hub/scripts/backup.sh`)
-- [ ] Ручной тест: запустить `bash /opt/dv-hub/scripts/backup.sh` — архив доезжает до локального компа
+- [x] Tailscale на VPS и на приёмнике (ecommunity108 100.121.185.24; сервер dv-hub-nl3 100.123.51.13)
+- [x] `TAILSCALE_IP=100.121.185.24` и `REMOTE_PATH=/home/rudra/backups/dv-hub/` в cron сервера (`0 3 * * 0`)
+- [x] Тест пройден 06.11 17:01 UTC: архив dv-hub-full-*.tar.gz доехал
+- [ ] Tailscale auth-key сервера годен 90 дней — ре-кей после 2027-02-04
+- [x] `REMOTE_PORT` в scripts/backup.sh — порт приёмника параметром (по умолчанию 22)
+- [x] Ручной тест: запустить `bash /opt/dv-hub/scripts/backup.sh` — архив доезжает до локального компа
 
 ---
 
@@ -1025,6 +1030,7 @@ sudo ufw status | grep -E '3478|5349|40000'
 - Бэкап: cron `0 3 * * 0 backup.sh` поставлен; offsite-rsync ждёт TAILSCALE_IP в .env.
 - Стенд проверен через `--noproxy` (в среде primary VPN-прокси — стенд-чеки через него врут: отвечает чужой nginx 1.24).
 - Дальше по §9.6: A-записи Namecheap (владелец, инструкция выдана) → certbot SSL → проверка → 48ч → гашение Fornex.
+- **Сторожа на machine приёмника:** cron в этой ОС не запущен (`systemctl is-active cron` → inactive), поэтому наблюдение переведено на systemd --user: `dvhub-ci-watch.timer` (*/15) и `dvhub-migration-watch.timer` (*/30), юниты в `~/.config/systemd/user/`. При переносе на другой хост — проверять демон cron или аналогично поднимать user-timer.
 
 ## Журнал изменений
 
@@ -1041,3 +1047,7 @@ sudo ufw status | grep -E '3478|5349|40000'
 | 2026-11-05 | Локация: Netherlands-3 (вердикт владельца) вместо Germany в ADR-010/§1/§9 | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | DV-012: подготовка coturn (скрипт + §10) | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | Стенд Zomro поднят: ufw/fail2ban/Node26/PM2/certbot, dvhub+MiroTalk+Nginx online, бэкап-cron; SSH на 22 (отклонение, §11); ждёт DNS-переключения | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | Telegram-вход восстановлен: username dv_hub_auth_bot в .env, webhook переставлен (secret сгенерирован на сервере) | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | Вердикт владельца: данные старого Fornex теряем («хуй с ними, всё самое важное в тг»); гашение Fornex — отмена в панели, руки владельца; бэкап снять невозможно (доступ утерян) | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | CI-сторож GitHub Actions (cron */15): новые падения → data/gh-watch.log + issue в репозиторий | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | Offsite-бэкап: сервер подключён к Tailscale (dv-hub-nl3, ключ на 90 дней — ре-кей ~2027-02-04); доставка в ~/backups/dv-hub на ecommunity108; ждёт sshd+online на приёмнике | Отдел разработки ДВ-Хаб |

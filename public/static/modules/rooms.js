@@ -196,6 +196,9 @@ async function renderRoomDetail(id) {
           <button onclick="copyToClipboard('${mirotalkUrl}')" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Скопировать ссылку">
             <i class="fas fa-copy mr-1"></i>Ссылка
           </button>
+          <button id="mirotalk-fullscreen-btn" onclick="mirotalkFullscreen()" class="bg-ink-700 hover:bg-ink-600 text-white px-3 py-2 rounded-lg text-sm transition" title="Открыть созвон на весь экран">
+            <i class="fas fa-expand mr-1"></i>Во весь экран
+          </button>
           <button id="mirotalk-toggle-btn" onclick="toggleMiroTalk(${id}, '${encodeURIComponent(currentUser?.name || 'Гость')}')" class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition inline-flex items-center">
             <i class="fas fa-phone-alt mr-1.5"></i>Начать звонок
           </button>
@@ -319,6 +322,28 @@ async function renderRoomDetail(id) {
 
 // ── MiroTalk SFU: встроенный звонок ─────────────────────────
 // MiroTalk SFU на meet.re-search.wiki. Встраивается через iframe.
+
+// Полный экран: разворачиваем iframe созвона (работает после старта звонка).
+async function mirotalkFullscreen() {
+  const frame = document.getElementById('mirotalk-iframe')
+  if (!frame || !frame.src) {
+    toast('Сначала начните звонок', 'error')
+    return
+  }
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+    } else if (frame.requestFullscreen) {
+      await frame.requestFullscreen()
+    } else if (frame.webkitRequestFullscreen) {
+      frame.webkitRequestFullscreen()
+    } else {
+      toast('Браузер не поддерживает полный экран', 'error')
+    }
+  } catch (e) {
+    toast('Не удалось развернуть: ' + (e.message || 'отказ браузера'), 'error')
+  }
+}
 
 function toggleMiroTalk(roomId, userName) {
   const container = document.getElementById('mirotalk-container')
