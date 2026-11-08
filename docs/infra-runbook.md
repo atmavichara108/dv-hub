@@ -76,8 +76,11 @@ flowchart LR
 
 - Пользователь: `dv` (не root)
 - Аутентификация: только ключ, парольный вход отключён
-- Порт: **22** на новом сервере Zomro (план 28108 отменён: provider фильтрует 28108 снаружи, см. §11). Старый Fornex: 28108.
-- Команда (новый): `ssh -p 22 dv@188.137.182.91`; (старый: `ssh -p 28108 dv@re-search.wiki`)
+- Порт: **28108** (штатный) и **22** (страховочный) — оба открыты в ufw, вход только по ключу.
+  Ранее записанная версия «provider фильтрует 28108» оказалась ошибкой диагностики: причина была в
+  `ssh.socket` (socket-activation Ubuntu 24.04), который не отдавал порт из `sshd_config`; после
+  `systemctl disable --now ssh.socket` порт работает (проверено 06.11, §11).
+- Команда: `ssh -p 28108 dv@188.137.182.91` (алиас владельца `to-dv`).
 - Ключи: см. `DV/Site/keys-passwords.mdenc` (зашифрованный файл в волте, не в репо)
 
 ### Кто имеет доступ
@@ -1033,9 +1036,12 @@ sudo ufw status | grep -E '3478|5349|40000'
 - Сервер 188.137.182.91 (Optimal AMD NL-3) получен 06.11; доступ по ключу, hostname dv-hub.host, tz Europe/Moscow.
 - **Отклонение от плана (СНЯТО 06.11 вечером):** первая диагностика «провайдер фильтрует 28108» была **ошибкой** — Zomro подтвердил, что порт открыт, и фактический вход на 28108 работает. Реальные причины поломки были две: (1) Ubuntu 24.04 ssh.socket (socket-activation) перебивал порты из sshd_config — отключён (`systemctl disable --now ssh.socket`); (2) отсутствие /run/sshd в ручных запусках. **Итог: SSH — на 28108 (key-only), 22 тоже открыт** (страховочный, ufw 22+28108, PasswordAuthentication no, fail2ban).
 - Стек: certbot 5.9 (snap), Node v26.13.0 (nvm), PM2 7.1.2 (autostart systemd).
-- Сервисы: dvhub online (health 200), mirotalksfu online (3010 200; .env: SFU_ANNOUNCED_IP=188.137.182.91, сгенерированы API_KEY_SECRET/JWT_SECRET на сервере), Nginx перед обоими (HTTP-only).
-- Побочные дефекты версии 2.7.65 MiroTalk (сравнение со старым 0.39.7): требуется `app/src/config.js` из `config.template.js`, обязателен `JWT_SECRET` в .env; деплой-скрипт `deploy-mirotalk.sh` доработан точечно на сервере, правка самого скрипта — TODO при следующем касании.
-- Бэкап: cron `0 3 * * 0 backup.sh` поставлен; offsite-rsync ждёт TAILSCALE_IP в .env.
+- Сервисы: dvhub online (health 200), mirotalksfu online (3010 200; .env: SFU_ANNOUNCED_IP=188.137.182.91, сгенерированы API_KEY_SECRET/JWT_SECRET на сервере), Nginx перед обоими, **HTTPS включён** на всех трёх доменах (certbot, автопродление snap-timer).
+- Дефекты версии 2.7.65 MiroTalk закрыты в самом скрипте (PR #4, `f67c804`): `app/src/config.js` из
+  `config.template.js`, генерация `JWT_SECRET`, подстановка `SFU_ANNOUNCED_IP` в `.env`, `nvm use --lts`.
+  Дополнительно шаг 2c (DV-045): Opus `useinbandfec: 1, usedtx: 0` (`7792761`).
+- Бэкап: локальный cron сервера `0 3 * * 0` + **offsite работает**: rsync по приватной сети в
+  `~/backups/dv-hub` приёмника, тест-архив доехал 06.11 17:01 UTC (см. §6).
 - Стенд проверен через `--noproxy` (в среде primary VPN-прокси — стенд-чеки через него врут: отвечает чужой nginx 1.24).
 - Дальше по §9.6: A-записи Namecheap (владелец, инструкция выдана) → certbot SSL → проверка → 48ч → гашение Fornex.
 - **Сторожа на machine приёмника:** cron в этой ОС не запущен (`systemctl is-active cron` → inactive), поэтому наблюдение переведено на systemd --user: `dvhub-ci-watch.timer` (*/15) и `dvhub-migration-watch.timer` (*/30), юниты в `~/.config/systemd/user/`. При переносе на другой хост — проверять демон cron или аналогично поднимать user-timer.
@@ -1054,7 +1060,7 @@ sudo ufw status | grep -E '3478|5349|40000'
 | 2026-11-01 | ADR-010: переезд Fornex → Zomro; раздел 9 runbook; параметризация деплой-скриптов (vps-env.sh) | Отдел разработки ДВ-Хаб |
 | 2026-11-05 | Локация: Netherlands-3 (вердикт владельца) вместо Germany в ADR-010/§1/§9 | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | DV-012: подготовка coturn (скрипт + §10) | Отдел разработки ДВ-Хаб |
-| 2026-11-06 | Стенд Zomro поднят: ufw/fail2ban/Node26/PM2/certbot, dvhub+MiroTalk+Nginx online, бэкап-cron; SSH на 22 (отклонение, §11); ждёт DNS-переключения | Отдел разработки ДВ-Хаб |
+| 2026-11-06 | Стенд Zomro поднят: ufw/fail2ban/Node26/PM2/certbot, dvhub+MiroTalk+Nginx online, бэкап-cron; SSH на 28108+22 ключ-only; ждёт DNS-переключения | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | Telegram-вход восстановлен: username dv_hub_auth_bot в .env, webhook переставлен (secret сгенерирован на сервере) | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | Вердикт владельца: данные старого Fornex теряем («хуй с ними, всё самое важное в тг»); гашение Fornex — отмена в панели, руки владельца; бэкап снять невозможно (доступ утерян) | Отдел разработки ДВ-Хаб |
 | 2026-11-06 | CI-сторож GitHub Actions (cron */15): новые падения → data/gh-watch.log + issue в репозиторий | Отдел разработки ДВ-Хаб |
